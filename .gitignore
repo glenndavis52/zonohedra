@@ -12,4 +12,3 @@ vignettes/*.bbl
 vignettes/*.log
 vignettes/figs
 .Rbuildignore
-.gitignore
