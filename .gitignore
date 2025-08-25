@@ -4,12 +4,12 @@ other
 *.gz
 *.zip
 *.bat
-*.db
+*.html
 tests/test-collapse.R
 vignettes/*.pdf
-vignettes/*.html
 vignettes/*.tex
 vignettes/*.bbl
 vignettes/*.log
 vignettes/figs
 .Rbuildignore
+.gitignore
