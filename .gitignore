@@ -1,0 +1,15 @@
+archive
+notinst
+other
+*.gz
+*.zip
+*.bat
+*.db
+tests/test-collapse.R
+vignettes/*.pdf
+vignettes/*.html
+vignettes/*.tex
+vignettes/*.bbl
+vignettes/*.log
+vignettes/figs
+.Rbuildignore

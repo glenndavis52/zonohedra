@@ -1,0 +1,176 @@
+---
+title: "Ray Tracing the Zonohedron Boundary and the 2-Transition Surface"
+author: "Glenn Davis"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
+    number_sections: false
+bibliography: bibliography.bib
+
+# csl: iso690-numeric-brackets-cs.csl
+csl: personal.csl
+# csl: institute-of-mathematical-statistics.csl
+# csl: transactions-on-mathematical-software.csl
+vignette: >
+  %\VignetteIndexEntry{Ray Tracing the Zonohedron Boundary and the 2-Transition Surface}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+
+```{css, echo=FALSE}
+body {
+  max-width: 870px;     /* make wider, default is 700px */
+}
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+old_opt = options( width=144 )
+```
+
+<br><br>
+
+# Introduction
+
+The focus of this vignette are the two
+functions `raytrace()` and `raytrace2trans()`.
+The former is for the boundary of the zonohedron 
+and the latter is for the associated 2-transition surface.
+We revisit the example at the end of section 6
+in Scott Burns' paper @Burns2021,
+which is also illustrated in the 1nm plot from Figure 8.
+His example is from colorimetry, where the boundary of the zonohedron
+is the set of optimal colors
+and the 2-transition surface is the set of Schr&ouml;dinger colors
+(both for Illuminant E).
+The correspondence for the optimal colors was discovered by
+Paul Centore, see @Centore2013.
+
+Other featured functions are `invertboundary()`, `inside()` and `inside2trans()`.
+
+```{r, echo=TRUE,  message=FALSE}
+library(zonohedra)
+```
+
+<br><br>
+
+# A Ray Tracing Example
+
+In Burns' example, the base of the ray is the center of the zonohedron $Z$:
+```{r, echo=TRUE,  message=TRUE, WARNING=TRUE}
+matgen = colorimetry.genlist[["xyz1931.1nm"]]   # the CIE 1931 CMFs at 1nm step
+matgen = 100 * matgen / sum( matgen[2, ] )   # it is traditional to scale so the center has Y=50, recall we use Illuminant E
+zono =  zonohedron( matgen )
+base = getcenter(zono) ; base
+```
+The vector `base` corresponds to Burns' vector $XYZ_{\text{50%}}$.
+
+The direction of the ray is given by spherical angles,
+which define a unit vector `u`:
+```{r, echo=TRUE,  message=TRUE, WARNING=TRUE}
+theta = 1.478858 ; phi = 0.371322
+u = c( sin(phi)*cos(theta), sin(phi)*sin(theta), cos(phi) ) ; u
+```
+
+Calculate the intersection of the ray with the boundary of $Z$.
+```{r, echo=TRUE,  message=TRUE, WARNING=TRUE}
+df_opt = raytrace( zono, base, u ) ; df_opt
+XYZ_opt = df_opt$point[1, ] ; XYZ_opt
+```
+This matches Burns' value of $XYZ_{\text{LPsoln}}$.
+From Figure 8 of @Burns2021 we see that this point
+(and every point in the same parallelogram)
+comes from a reflectance spectrum with 4 transitions.
+This can be verified by inverting:
+```{r, echo=TRUE,  message=TRUE, WARNING=TRUE}
+invertboundary( zono, XYZ_opt )$transitions
+```
+
+
+Now calculate the intersection of the ray with the 2-transition surface
+associated with $Z$.
+```{r, echo=TRUE,  message=TRUE, WARNING=TRUE}
+df_2trans = raytrace2trans( zono, base, u ) ; df_2trans
+XYZ_2trans = df_2trans$point[1, ] ; XYZ_2trans
+```
+This matches Burns' value of $XYZ_{\text{two-trans}}$ to 4 decimal places.
+The transition wavelengths 629 and 575nm,
+and the parallelogram coordinates 0.2246808 and 0.4459951
+(these are the corresponding reflectances),
+are clearly visible in Figure 8.
+
+Now consider the distance between these 2 points
+$XYZ_{\text{LPsoln}}$ and $XYZ_{\text{two-trans}}$.
+The parameter `tmax` in both data frames is the parameter on the ray
+where it intersects the boundary or the surface.
+Since `u` is a unit vector, the difference between the parameters is this distance.
+```{r, echo=TRUE,  message=FALSE}
+df_opt$tmax - df_2trans$tmax
+```
+This matches Burns' value of $1.29 \times 10^{-3}$,
+which is very tiny especially compared to the two $XYZ$s.
+
+What is the maximum that this distance can be over the entire $\partial Z$ ?
+To get a rough estimate, a search was made over the rays
+passing though the centers of all the 21900 deficient parallelograms,
+and with the same basepoint as before.
+The largest distance over these rays was $2.47 \times 10^{-3}$.
+This distance is for the parallelogram with generators corresponding
+to 592 and 608 nm; the generating 'spectrum' has 8 transitions.
+The actual maximum distance between the boundary of the color solid
+and the 2-transition surface is not much larger than this sampling.
+This confirms Burns' statement from @Burns2021 that the distance between
+these surfaces has
+"... no practical impact on typical colorimetric calculations".
+
+If the zonohedron $Z$ is called the _Object Color Solid_ (OCS),
+and the inside of the 2-transition surface is called the 
+_Schr&ouml;dinger Color Solid_ (SCS),
+we see that the OCS is obtained by adding a very thin "skin"
+on some regions of the SCS.
+
+
+<br><br>
+
+# Inside or Outside ?
+
+Consider the midpoint of $XYZ_{\text{LPsoln}}$ and $XYZ_{\text{two-trans}}$.
+It lies on the same ray as these 2 points,
+so it must be *inside* the zonohedron, but *outside* the 2-transition surface.
+We can verify this easily:
+```{r, echo=TRUE,  message=FALSE, WARNING=TRUE}
+XYZ_mid = (XYZ_opt + XYZ_2trans) / 2
+inside( zono, XYZ_mid )
+inside2trans( zono, XYZ_mid )
+```
+
+
+
+<br><br>
+
+# References
+
+<div id="refs"></div>
+
+
+
+
+<br><br>
+
+
+
+
+# Session Information
+
+This document was prepared
+`r format(Sys.Date(), "%a %b %d, %Y")`
+with the following configuration:
+<pre>
+```{r, echo=FALSE, results='asis'}
+options(old_opt)
+sessionInfo()
+```
+</pre>

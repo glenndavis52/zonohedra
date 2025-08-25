@@ -1,0 +1,1192 @@
+---
+title: "The 2-Transition Subcomplex and the 2-Transition Surface"
+author: "Glenn Davis"
+date: "`r Sys.Date()`"
+
+header-includes:
+  - \usepackage{textcomp}
+
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+bibliography: bibliography.bib
+
+
+# csl: iso690-numeric-brackets-cs.csl
+csl: personal.csl
+# csl: institute-of-mathematical-statistics.csl
+# csl: transactions-on-mathematical-software.csl
+vignette: >
+  %\VignetteIndexEntry{The 2-Transition Subcomplex and the 2-Transition Surface}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{css, echo=FALSE}
+body {
+  max-width: 750px;     /* make a little wider, default is 700px */
+}
+```
+
+\newcommand{\argmax}{\mathop{\mathrm{argmax}}\limits}
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+old_opt = options( width=144 )
+
+# if( !file.exists("figs") ) dir.create("figs")
+
+require("rgl",quietly=TRUE)
+rgl::setupKnitr(autoprint = TRUE)
+```
+
+Throughout this vignette,
+$Z$ is a zonohedron such that none of its generators
+$L(e_1),...,L(e_n)$ are 0,
+and no generator is a multiple of another.
+Equivalently, we assume that matroid of $Z$ is simple.
+For more discussion of zonohedra,
+see the [Zonotopes](zonotopes.html) vignette.
+
+Given such a zonohedron $Z$, and a cyclic ordering of the generators of $Z$,
+there is a surface contained in $Z$, which may coincide with $\partial Z$,
+but in general does not.
+In this vignette we give a careful definition of this
+_2-transition surface_,
+give some examples, and explain some of the relevant functions
+in the **zonohedra** package for processing this surface.
+Points in the 2-transition surface are analogous to the reflectance spectra
+of _Schr&ouml;dinger colors_.
+Points in $\partial Z$ are analogous to the reflectance spectra of
+_optimal colors_, see @ANDP:ANDP19203671504, @Logvinenko2009,
+and especially @Brill1983.
+
+Featured functions in this vignette are:
+`raytrace2trans()`, `transitionsdf()`, and `plothighertrans()`.
+
+Given $x_1,x_2 \in \mathbb{R}^n$, $[x_1,x_2]$ denotes the line segment
+from $x_1$ to $x_2$.
+
+<br>
+
+
+```{r, echo=TRUE,  message=FALSE}
+library(zonohedra)
+```
+
+<br><br>
+
+# The Unit Cube $Q^n$
+
+We abbreviate $Q^n := [0,1]^n$, i.e. the $n$-cube.
+So $Q^n$ is all points
+$x = (\alpha_1, ... , \alpha_n)$ where all $\alpha_i \in [0,1]$.
+For this vignette we assume $n \ge 3$.
+
+A _vertex_ of $Q^n$ is a point where all $\alpha_i = 0 ~ \textrm{or} ~ 1$;
+there are $2^n$ vertices.
+If two vertices differ by exactly one coordinate, they are the endpoints
+of an _edge_, and the "free" coordinate parameterizes the edge.
+There are $n 2^{n-1}$ edges.
+If four vertices differ by two coordinates, they are the vertices
+of a _square_, and the two "free" coordinates parameterize the square.
+There are $\binom{n}{2} 2^{n-2}$ squares.
+In the familiar case when $n{=}3$, there are 8 vertices, 12 edges, and 6 squares.
+Note that $(\alpha_1, ... , \alpha_n) \in \partial Q^n$ 
+iff some $\alpha_i =$ 0 or 1.
+Thus vertices, edges, and squares are all subsets of $\partial Q^n$.
+
+The _standard involution_ $\rho: Q^n \to Q^n$ is the map
+$(\alpha_1, ... , \alpha_n) ~ \mapsto ~ (1-\alpha_1, ... , 1-\alpha_n)$.
+It is clear that $\rho$ maps a vertex to an _antipodal vertex_,
+Similarly, there are pairs of _antipodal edges_ and _antipodal squares_.
+$\rho$ has a unique fixed point $(1/2, ... ,1/2)$,
+which is the center of symmetry.
+
+
+
+<br><br>
+
+# The 2-Transition Subcomplex $Q_2^n \subset Q^n$
+
+This section treats the _2-transition subcomplex_ of $Q^n$ with $n \ge 3$,
+which we denote by $Q^n_2$.
+We define it in three ways.
+
+**Definition 1:**  
+Visualize the indexes $1, ... ,n$ as points on the circle,
+like beads in a necklace, or the $n$ roots of unity.
+Different points $i \ne j$ divide the other
+points into 2 contiguous "arcs" (one of them may be empty).
+Define $(\alpha_1, ... , \alpha_n) \in Q^n_2$
+iff 
+there are $i \ne j$, so that $\alpha_k = 0$ for $k$ in one arc
+and $\alpha_k = 1$ for $k$ in the other arc.
+
+There are 2 ways to choose 0 and 1,
+so as $\alpha_i$ and $\alpha_j$ vary,
+they "sweep out" 2 disjoint and antipodal squares in $Q^n$.
+The total number of these _2-transition squares_ is $n(n-1)$.
+$Q^n_2$ is the union of these squares, joined along their edges.
+
+It is helpful to visualize points in the unit cube as bar graphs.
+Here are four points in $Q^{10}_2$, with 2 transitions:
+
+```{r, echo=TRUE,  message=TRUE,  warning=TRUE, fig.width=6.5, fig.height=4, fig.cap='Figure 2.1  four points in the 2-transition complex, visualized with bar graphs', out.width="100%", cache=FALSE }
+mybarplot <- function( x )  {
+n = length(x)
+plot( c(0,n), c(0,1), type='n', tcl=0, las=1, xaxt='n', xlab='', ylab='', mgp=c(3,0.25,0) )
+grid( nx=NA, ny=NULL, lty=1 )
+barplot( x, names.arg=1:n, space=0, add=T, yaxt='n', mgp=c(3,0.25,0) )
+}
+
+x1 = numeric(10) ; x1[ c(3,8) ] = exp( c(-0.25,-1) ) ; x1[ 4:7 ] = 1
+x2 = numeric(10) ; x2[ c(5,6) ] = exp( c(-1,-0.25) )
+
+oldpar = par( mfrow=c(2,2)  , omi=c(0,0,0,0), mai=c(0.45,0.5,0.1,0) )
+mybarplot( x1 )   ; mybarplot( x2 )     #  row #1
+mybarplot( 1-x1 ) ; mybarplot( 1-x2 )   #  row #2
+par( oldpar )
+```
+For the first point, the run of 1s has length 4,
+and the (circular) run of 0s also has length 4.
+For the next plot, the run of 1s has length 0,
+and the (circular) run of 1s has length 8.
+The points in row #2 are derived by applying the involution to the point above it.
+Of course, the involution turns runs of 1s to runs of 0s,
+and vice-versa.
+
+The special vertices $(0,...,0)$ and $(1,...,1)$ are in $Q^n_2$
+by this definition, although they technically have no transitions.
+Also, if $\alpha_i = 0$ except for one $i$, that point is _also_ in $Q^n_2$
+because it is in an edge of one of the above-defined squares.
+
+Note that $Q^3_2 = \partial Q^3$,
+i.e. every point in the boundary of $Q^3$ is a 2-transition point.
+
+
+
+<br>
+
+**Definition 2:**   
+This definition views a 2-transition point as a special discrete projection
+of a 2-transition function defined on a circle.
+
+Given $n$, define $n+1$ points, $\beta_i := i + 1/2$ for $i = 0,...,n$,
+and $n$ intervals
+$I_i := [\beta_{i-1},\beta_i]$ = $[i-1/2,i+1/2]$ for $i = 1,...,n$.
+These intervals have length 1 and are a partition of $[1/2,n+1/2]$.
+
+Let $J_2$ be the set of all (step) functions on $[\beta_0,\beta_n]$
+that take the values 0 or 1 and have two transitions or no transitions (jumps).
+We identify the endpoints $\beta_0$ and $\beta_n$ to form a circle,
+so if the functions values at $\beta_0$ and $\beta_n$ are different,
+then this is considered to be a transition.
+Equivalently $J_2$ is the set of all indicator functions $\mathbf{1}_A$
+where $A$ is an arc in the circle.
+We allow the arc to be empty (the function is identically 0),
+or the entire circle (the function is identically 1).
+Define a function $p()$
+\begin{equation}
+p : J_2 \twoheadrightarrow Q^n  ~~~  \text{by} ~~~  p(f) := (\alpha_1,\ldots,\alpha_n)  ~~~ \text{where}  ~~~   \alpha_i :=  \int_{I_i} f(\lambda) \, d\lambda
+\end{equation}
+Note that $\alpha_i$ is the mean of $f$ on $I_i$.
+So if $f$ is identically 1 on $I_i$, then $\alpha_i = 1$ in $p(f)$.
+And the same is true with 1 replaced by 0.
+But if $f$ has a jump in $I_i$, then $\alpha_i$ can be anywhere in $[0,1]$
+depending on where the jump occurs.
+If there is exactly one jump in $I_i$,
+then the location of the jump is uniquely determined by $\alpha_i$.
+But if there are two jumps in $I_i$,
+then the 2 jump locations are **not** determined by $\alpha_i$.
+It only determines the distance between the jumps,
+so both can be translated a little bit and not change $\alpha_i$.
+Thus, $p$ is _not_ injective.
+
+Here are plots with 2 examples:
+
+```{r, echo=TRUE,  message=TRUE,  warning=TRUE, fig.width=6.5, fig.height=4, fig.cap='Figure 2.2', out.width="100%", cache=FALSE }
+
+mystepplot <- function( x )  {
+# assumption: x is Type I
+n = length(x)
+plot( c(1/2,n+1/2), c(0,1), type='n', tcl=0, las=1, xlab='', ylab='', lab=c(n,5,7), mgp=c(3,0.25,0) )
+grid( lty=1 )
+beta = seq(1/2,n+1/2,by=1) ; segments( beta, 0, beta, -0.02 )
+ij = which( 0<x & x<1)  ;  lambda = ij + c(1/2 - x[ ij[1] ], x[ ij[2] ] - 1/2)
+lines( c(0.5,lambda[1]), c(0,0) ) ; lines(lambda,c(1,1)) ; lines( c(lambda[2],n+1/2), c(0,0) )
+segments( lambda, c(0,0), lambda, c(1,1), lty=3 )
+}
+
+oldpar = par( mfrow=c(2,2), omi=c(0,0,0,0), mai=c(0.45,0.5,0.1,0) )
+mystepplot( x1 ) ; mystepplot( x2 )     #  row #1
+mybarplot( x1 ) ; mybarplot( x2 )       #  row #2
+par( oldpar )
+```
+The 1st plot shows a function $f \in J_2$ with jumps in intervals $I_3$ and $I_8$.
+The plot below it shows $p(f) \in Q^{10}_2$.
+The 2nd plot shows a function $f \in J_2$ with jumps in intervals $I_5$ and $I_6$.
+The plot below it shows $p(f) \in Q^{10}_2$.
+In the 1st row, the sequence $\beta_i$ (all of them half-integers)
+is marked with small tick marks.
+
+We now define $Q^n_2$ to be the image of $p()$; i.e. $Q^n_2 := p(J_2)$.
+It is straightforward to show that **Definition 2** and **Definition 1**
+are equivalent.
+
+Now we look at $J_2$ in more detail.
+Every function in $J_2$ is integrable, so we can think of
+$J_2 \subset L^1(\mathbb{S}^1)$, which is the space of
+integrable functions on the circle $\mathbb{S}^1$.
+
+**Theorem**
+With the $L^1$ topology, $J_2$ is homeomorphic to the 2-sphere $\mathbb{S}^2$.
+
+**Proof**
+Denote the 2 functions in $J_2$ that are identically 0 or 1
+by $f_0$ and $f_1$.
+For a point in $J_2 - \{f_0, f_1\}$,
+the corresponding arc $A$ is non-trivial,
+and so the midpoint of the arc is a well-defined point in $\mathbb{S}^1$.
+The length of the arc is in the open interval $(0,2\pi)$.
+This assignment gives a homeomorphism from $J_2 - \{f_0 , f_1\}$
+to the open cylinder $U := \mathbb{S}^1 \times (0,2\pi)$.
+Note that as two points in $J_2$ get closer to $f_0$,
+they get closer to each other in the $L^1$ metric; and similarly for $f_1$.
+So if bottom and top boundaries of $U$ are each collapsed to a point,
+and $f_0$ and $f_1$ are mapped to those two points,
+it continuously extends the above homeomorphism to all of $J_2$ and
+to the cylinder with collapsed boundaries,
+which is just a 2-sphere $\mathbb{S}^2$.
+$\square$
+
+Later, we will see that $Q^n_2$ is _also_ homeomorphic to $\mathbb{S}^2$.
+But the above mapping $p : J_2 \twoheadrightarrow Q^n_2$
+is _not_ a homeomorphism,
+because we observed above that $p$ is _not_ injective.
+
+
+
+<br>
+
+**Definition 3:**   
+This definition works directly with vertices and squares of $Q^n$.
+A _2-transition vertex_ is one with a single circular run of 0s,
+and a single circular run of 1s.
+A run is allowed to empty, and this yields the vertex of all 0s and all 1s.
+A _2-transition square_ is a square whose 4 vertices are all 2-transition
+vertices.
+Note that the center of the square has exactly 2 coordinates with value 1/2,
+and the other values are a circular arc of 0s and an arc of 1s.
+We now define $Q^n_2$ to be the union of all these 2-transition squares.
+It is an example of a cubical subcomplex of $Q^n$.
+Once again, it is straightforward to show that
+**Definition 3** and **Definition 1** are equivalent.
+
+For an $x := (\alpha_1,...,\alpha_n) \in Q^n_2$,
+we define the _level_ of $x$ be the number of $\alpha_i$'s that equal $1$.
+The level varies from 0 to $n$.
+The level is constant on the interior of an edge and the interior of a square.
+We define the _level_ of a square to be the level on the interior.
+The level of a square varies from 0 to $n{-}2$.
+It is helpful to think of level=0 squares at the "bottom" of the subcomplex,
+and level=$n{-}2$ squares at the "top".
+
+So we know that $Q^n_2$ is a union of squares, but what does it "look like",
+and what is its topology?
+We claim that $Q^n_2$ is a 2-sphere $\mathbb{S}^2$.
+In the case of $n{=}3$ this is easy to see, since $Q^3_2$ = $\partial Q^3$.
+
+In general, first consider all the 2-transition squares with level=0.
+It is straighforward to show that such a square has 0 as a vertex,
+and it has 2 vertices with level=1 and one vertex with level=2.
+Each edge from 0 to a level 1 vertex is shared by two of the squares,
+and so the squares are arranged in circular fashion around 0.
+Their union is a topological disk $\mathbb{D}^2$ at the "bottom".
+Similarly, the level=$n{-}2$ squares form a disk at the "top".
+
+Now consider squares with fixed level $\mathcal{l}$ with $0 < \mathcal{l} < n{-}2$.
+It is easy to show that in each square,
+both of the level=$\mathcal{l}{+}1$ vertices are
+in one other square, so the level $\mathcal{l}$ squares form a
+"necklace of $n$ diamonds".
+These $n{-}3$ necklaces are stacked on top of each other to form a cylinder,
+and the cylinder is capped at bottom and top to form the
+2-sphere $\mathbb{S}^2$.
+We now verify the square count in $Q^n_2$;
+$n + n(n{-}3) + n = n(n-1)$ which is correct.
+
+The following figure is a helpful visualization.
+```{r, rgl=TRUE, dev='png', echo=TRUE,  message=TRUE,  warning=TRUE, fig.width=6.5, fig.height=4, fig.cap='Figure 2.3  &emsp;&emsp;&emsp;  [these are interactive WebGL widgets]', fig.keep='none', fig.show='hide', out.width="100%", cache=FALSE }
+rgl::par3d( zoom=0.7 )
+rgl::mfrow3d( 1, 2 )
+zono =  polarzonohedron(9)
+plot2trans( zono )
+rgl::next3d()
+plot2trans( zono, level=c(0,4,7) )
+rgl::rglwidget( webgl=TRUE )
+```
+This figure plots the image of $Q^9_2$ in $\mathbb{R}^3$ under a
+suitable linear map.
+The squares are distorted into parallelograms.
+The figure on the left draws the full subcomplex,
+and the one on the right only draws levels 0, 4, and 7.
+The "necklace of 9 diamonds" at level=4 is easily visible.
+The black dot is the image of $(0,...,0)$,
+and the white dot is the image of $(1,...,1)$.
+
+More about these linear maps is given in the next section.
+
+
+
+<br><br>
+
+# The 2-Transition Surface $S_2 \subset Z \subset \mathbb{R}^3$
+
+Let the zonohedron $Z := L(Q^n)$,
+where $L : \mathbb{R}^n \twoheadrightarrow \mathbb{R}^3$ is a surjective linear map. 
+From now on we assume that $Z$ is _pointed_,
+which means that 0 is a vertex of $Z$.
+
+Let $S_2 := L(Q^n_2)$ be the image of the 2-transition subcomplex $Q^n_2$.
+Since the subcomplex is a union of squares glued on the edges to form a 2-sphere $\mathbb{S}^2$,
+$S_2$ is a union of parallelograms glued on the edges.
+$S_2$ is a tesselated surface,
+but may not be a sphere because it may have self-intersections.
+
+We are mainly interested in the case that there are _no_ self-intersections,
+and there is a precise way to state this.
+Let $L_2$ be the restriction of $L$ to $Q^n_2$.
+So $L_2 : Q^n_2 \to \mathbb{R}^3$ is the composition of the
+inclusion $Q^n_2 \subset \mathbb{R}^n$ followed by $L$.
+The surface has no self-intersections iff $L_2$ is injective.
+
+For example, in the previous figure $S_2$ does **not**
+have self-intersections and is a topological 2-sphere.
+$L_2$ is injective.
+
+If $L_2$ is injective,
+then it is well-known (@Alexander1924, @Moise1977 p. 117, and @Bing1983 p. 161)
+that $S_2$ divides $\mathbb{R}^3$ into
+an inside region and an outside region whose intersection is $S_2$.
+Moreover, the inside region is homeomorphic to a closed ball,
+and $S_2$ is the boundary of that ball.
+
+Since $Q^n_2 \subset Q^n$, $S_2 = L(Q^n_2) \subset L(Q^n) = Z$.
+We emphasize that $S_2$ is a surface, and $Z$ is a solid.
+We also emphasize that $S_2$ depends intimately on the order of the generators,
+and $Z$ does not depend on the order at all.
+
+
+<br><br>
+
+# Polygons
+
+A polygon for us is more than just a subset of the plane.
+A _polygon_ is a finite and cyclically ordered set of distinct _vertices_,
+plus the line segments that connect the vertices in cyclic order.
+The line segments are called the _edges_.
+The union of the edges is a subset of the plane,
+but two different sets of vertices can generate the same subset -
+the vertices matter.
+
+A _simple polygon_ is a polygon whose edges do not intersect,
+except at corresponding endpoints;
+i.e. the polygon has no self-intersections.
+By the _Jordan Curve Theorem_, a simple polygon,
+as just a set, has an inside region
+and an outside region, and both are connected.
+Note that a non-simple polygon may also have a connected inside region;
+it might "double-back" on itself within an edge, and then proceed forward again.
+
+A _convex polygon_ is a polygon with an inside region that is convex.
+
+There is an equivalent definition of polygon using functions.
+Let $U_n$ be the set of $n$'th root of unity on the unit circle in $\mathbb{C}$,
+plus the edges connecting these vertices in order.
+So $U_n$ is sort of a _quintessential_ or _template_ polygon.
+A general polygon is a function $f : U_n \to \mathbb{R}^2$ which is
+injective _on the vertices_ (the image vertices are distinct) and 
+linear _on each edge_.
+Since $f$ is injective on the vertices, it is also injective on each edge;
+one can think of $f$ as a _piecewise-linear immersion_ of $U_n$.
+A polygon defined this way is _simple_ iff $f$ is injective.
+
+This is an unintuitive way to define a polygon,
+but has the advantage that it generalizes easily to one higher dimension,
+as we see later in **Section 9**.
+
+
+<br><br>
+
+# The Generator Polygon $P$
+
+Since $Z$ is pointed, there is a plane $K$ in $\mathbb{R}^3$ that has 0
+in one open halfspace, and all the generators of $Z$ in the other open halfspace.
+This "cutting" hyperplane intersects $S_2$ in a polygon.
+Each vertex of the polygon is the intersection of $K$
+and the segment from 0 to a generator.
+The cyclic order of its vertices is inherited from the order of the generators.
+We call this the _generator polygon_ and let $P := K \cap S_2$ denote it.
+
+$P$ may not be a simple polygon in general; it may have self-intersections.
+
+Since there can be many cutting hyperplanes $K$,
+$P$ is only defined up to a projective transformation.
+In colorimetry for example, there are three chromaticity diagrams,
+from 1931, 1960, and 1976.
+They are all generator polygons for the same set of generators,
+and the 3 polygons differ by projective transformations,
+see @Wyszecki&Stiles.
+
+
+
+
+
+<br><br>
+
+# Parallelograms in $S_2$ and $\partial Z$
+
+Given $\partial Z$ and $S_2$ as above,
+the goal in this section is to show that each is a union
+of $n(n{-}1)$ parallelograms, and to set up a 1-1 correspondence
+between the parallelograms in $S_2$ and those in $\partial Z$.
+Each parallelogram will also be assigned a unit normal
+in such a way that corresponding parallelograms have the same normal.
+
+First consider $\partial Z$.
+If a facet of $Z$ is not a parallelogram, let it be tiled
+with the _standard tiling_ by parallelograms,
+see the [Zonotopes](zonotopes.html) vignette.
+Given an unordered pair $\{ i,j \}$ with $1 \le i , j \le n$
+and $i \ne j$,
+there are 2 antipodal parallelograms in $\partial Z$.
+The edges of both parallelograms are the generators $L(e_i)$ and $L(e_j)$.
+If  $\mathcal{P}$ is one of those parallelograms,
+we know that $\mathcal{P}$ is the image of some square in $Q^n$.
+The following Lemma algebraically characterizes which squares map to
+a parallelogram $\mathcal{P} \subset \partial Z$.
+
+**Lemma:**
+Let $\Sigma$ be a square in $Q^n$.
+By definition $\Sigma$ is determined by an unordered pair $\{ i,j \}$
+and for all $k \notin \{ i,j \}$, an assignment of $\alpha_k$ to either 0 or 1.
+The coordinates $\alpha_i$ and $\alpha_j$ are 'free' in [0,1]
+and sweep out the square.
+Let the parallelogram
+$\mathcal{P} := L(\Sigma) \subset Z$ be the image of the square.
+Let $w := L(e_i) \times L(e_j)$ be the cross product of the edges of $\mathcal{P}$.
+Then $\mathcal{P} \subset \partial Z$
+iff
+for all $k \notin \{ i,j \}$
+\begin{equation}
+\alpha_k =
+\begin{cases}    
+0 & \langle L(e_k),w \rangle < 0  \\
+1 & \langle L(e_k),w  \rangle > 0  \\
+0 ~\text{or} ~ 1 & \langle L(e_k),w  \rangle = 0
+\end{cases}
+\hspace{20pt}  \text{or}  \hspace{20pt}
+\alpha_k =
+\begin{cases}
+1 & \langle L(e_k),w \rangle < 0  \\
+0 & \langle L(e_k),w  \rangle > 0  \\
+0 ~\text{or} ~ 1 & \langle L(e_k),w  \rangle = 0
+\end{cases}
+\end{equation}
+
+Note that the two conditions are almost the same;
+the first 2 cases merely swap 0 and 1,
+and the third case is the same in both conditions.
+The third case is not really new;
+it comes from the definition of the square.
+Also note that the order of $i$ and $j$ affects the definition of $w$,
+but if $i$ and $j$ are swapped,
+$w$ is changed to $-w$ which merely swaps the two conditions.
+
+**Proof:**
+Let $\lambda$ be the linear functional $z \mapsto \langle z,w \rangle$.
+Since $\langle L(e_i),w \rangle = \langle L(e_j),w \rangle = 0$,
+the values of $\alpha_i$ and $\alpha_j$ have no effect on $\lambda( L(x) )$.
+Similarly, in the last case where $\langle L(e_k),w  \rangle = 0$,
+$\alpha_k$ has no effect.
+This case only happens when $L(e_k)$ is a linear combination of $L(e_i)$ and $L(e_j)$,
+and the corresponding facet is non-trivial with 6 or more edges.
+The facet then requires a selected tiling,
+and different tilings yield different assignments of 0 and 1 to $\alpha_k$.
+
+If the square $\Sigma$ satisfies the first condition above,
+then any $x \in \Sigma$ maximizes $\lambda( L(x) )$ over _all_ $x \in Q^n$.
+Therefore $L(\Sigma) \subset \partial Z$, by the definition of $Z$.
+If the square $\Sigma$ satisfies the second condition,
+then $\lambda( L(x) )$ is minimized and the conclusion is the same.
+
+Conversely, if the square satisfies neither condition,
+then  $\lambda( L(x) )$ for $x \in \Sigma$ is strictly between
+the maximum and the minimum.
+This means that $L(\Sigma)$ is in an intermediate hyperplane
+orthogonal to $w$.
+The intersection of an intermediate hyperplane with $\partial Z$
+is only a 1-dimensional polygon and cannot contain a parallelogram.
+Thus $L(\Sigma) \not\subset \partial Z$.
+$\square$
+
+Define a _slab_ in $\mathbb{R}^3$ to be the region between two parallel planes,
+including the planes themselves.
+In equation form, a slab $\mathcal{S}$ is given by
+\begin{equation}
+\mathcal{S} := \{ ~ x : \alpha  \le  \langle x,w \rangle  \le \beta ~ \}
+\end{equation}
+where $w \in \mathbb{R}^3$ is the non-zero plane normal,
+and $\langle x,w \rangle {=} \alpha$ and $\langle x,w \rangle {=} \beta$ are the two planes.
+If $\alpha {<} \beta$ then each point in the boundary planes of $\mathcal{S}$
+has a unique outward-pointing unit normal.
+But if $\alpha {=} \beta$ then the planes coincide,
+the slab degenerates to that plane,
+and a normal cannot be assigned unambiguously.
+
+Given an unordered pair $\{ i,j \}$ with $1 \le i , j \le n$
+and $i \ne j$,
+there are 2 antipodal parallelograms in $\partial Z$.
+The edges of both parallelograms are the generators $L(e_i)$ and $L(e_j)$.
+They define two distinct parallel planes and therefore a non-degenerate slab
+denoted by $\mathcal{S}^{ \{i,j\} }$.
+The slab has 2 well defined boundary normals,
+which we assign to the 2 parallelograms in the boundary of the slab.
+Note that if $u$ is the unit normal for one of the parallelograms $\mathcal{P}$,
+then $u$ is a multiple of the cross product $L(e_i) \times L(e_j)$.
+
+
+Now consider $S_2$.
+Given an unordered pair $\{ i,j \}$ as above,
+there are 2 antipodal parallelograms in $S_2$
+and the edges of both are the generators $L(e_i)$ and $L(e_j)$.
+These 2 parallelograms are parallel to each other;
+let $\mathcal{S}_2^{ \{i,j\} }$ be the slab defined by them.
+The 2 parallelograms in $\partial Z$ given by $\{ i,j \}$ have the same
+edges - the generators $L(e_i)$ and $L(e_j)$.
+So it is clear that $\mathcal{S}_2^{ \{i,j\} } \subseteq \mathcal{S}^{ \{i,j\} }$.
+If this new slab is non-degenerate,
+then each of the two parallelograms in $S_2$ can be matched to exactly one
+of the two parallelogram in $\partial Z$
+by choosing the one with the same normal vector.
+If this new slab is degenerate, its outward-pointing normal is not defined,
+and we can pick an assignment at random.
+
+This completes the goal of this section.
+
+An interesting observation:
+since corresponding parallelograms are congruent,
+they have the same surface area,
+and therefore $S_2$ and $\partial Z$ have the same surface area as well.
+
+
+<br><br>
+
+# A Theorem about $S_2$ and the Convexity of $P$
+
+We have seen that $S_2 \subset Z$.
+It is natural to ask:
+<div style="text-align: center">
+When is $S_2$ as large as possible, namely the entire boundary of $Z$ ?
+</div>
+
+Recall our assumptions that $Z$ has a simple matroid, and is pointed.
+
+
+**Theorem:**
+With $Z$, $S_2$, $L_2$, and $P$ defined as above, the following are equivalent:
+<ol type='1'>
+<li>$S_2 = \partial Z$</li>
+<li>$L_2$ is injective, and the inside region of $S_2$ is convex</li>
+<li>$P$ is a simple convex polygon, possibly with collinear vertices</li>
+</ol>
+
+The equivalence of properties 1 and 3 is proved in West & Brill @Brill1983,
+except the sequence of vector generators in this theorem
+is replaced by a continuous path of vectors in @Brill1983.
+To our knowledge, property 2 is new.
+
+
+**Proof:**  
+$1. \implies 2.$
+$L_2$ is clearly injective on each square.
+If a parallelogram of $S_2$ is in $\partial Z$ then it must be the
+corresponding parallelogram (or its antipodal) in $\partial Z$
+from the previous section.
+This mapping of parallelograms is 1-1,
+and since the parallelograms of $\partial Z$ are disjoint
+(except on the edges)
+the parallelograms of $S_2$ are disjoint (except on the edges).
+Therefore $L_2$ is injective.
+
+The inside region of $S_2$ is
+the inside region of $\partial Z$, which is $Z$, which is convex.
+
+
+$2. \implies 3.$ (trivial) The polygon $P$ is the
+intersection of a hyperplane and the boundary of a convex polyhedron,
+and that intersection is a convex polygon.
+Since $L_2$ is injective, $P$ is simple.
+
+$3. \implies 1.$ 
+For a generator $L(e_i)$, let $v_i$ be the corresponding vertex of $P$.
+It is the intersection of the ray generated by $L(e_i)$ and the
+cutting hyperplane $K$.
+Note that $v_i$ is a _positive_ multiple of $L(e_i)$.
+
+Firstly we show that $S_2 \subseteq \partial Z$.
+
+Let ${ \{i,j\} }$ be an unordered pair of indexes as above.
+These indexes divide the remaining indexes into 2 contiguous circular sequences.
+Let $\mathcal{P}$ be one of the corresponding parallelograms of $S_2$,
+and let $u$ be its unit normal.
+By definition, $\mathcal{P}$ is the image under $L$
+of a 2-transition square $\Sigma$ in $Q^n_2$.
+For $\Sigma$, all $\alpha_k$ in one sequence are 0,
+and all $\alpha_k$ in the other sequence are 1.
+
+We want to show that $\mathcal{P}$ is also in $\partial Z$.
+Let $\mathcal{L}$ be the line through $v_i$ and $v_j$.
+The plane given by $\langle x,u \rangle = 0$ contains both $L(e_i)$ and $L(e_j)$,
+and so $\langle v_i,u \rangle = \langle v_j,u \rangle = 0$.
+The line $\mathcal{L}$ divides $K$ into a positive side and a negative side.
+For another vertex $v_k$,
+$\langle L(e_k),u \rangle > 0$ iff $v_k$ is on the positive side of $\mathcal{L}$,
+and
+$\langle L(e_k),u \rangle < 0$ iff $v_k$ is on the negative side of $\mathcal{L}$.
+
+Consider the relationship between $\mathcal{L}$ and $P$.
+
+**Case i).** $\mathcal{L}$ intersects the interior of $P$
+<br>
+Since $P$ is convex, all the $v_k$ in one contiguous sequence
+are on the positive side of $\mathcal{L}$ and
+all the $v_k$ in the other contiguous sequence are on the negative side of $\mathcal{L}$.
+This implies that
+all the generators $L(e_k)$ in one contiguous sequence,
+have $\langle L(e_k),u \rangle > 0$,
+and all the generators $L(e_k)$ in the other contiguous sequence
+have $\langle L(e_k),u \rangle < 0$.
+But we saw earlier that the $\alpha_k$ in one sequence are all 0,
+and the $\alpha_k$ in the other sequence are all 1.
+This is exactly the condition given by the Lemma in the previous section.
+Therefore $\mathcal{P} \subseteq \partial Z$.
+
+**Case ii).**  $\mathcal{L}$ intersects $\partial P$, but not the interior of $P$
+<br>
+This case is a little more subtle, but basically the same.
+Since $P$ is convex, w.l.o.g. we can assume all $v_k$ are
+either on $\mathcal{L}$ or on the negative side of $\mathcal{L}$.
+Those on the negative side are part of contiguous sequence,
+so for all these $k$, $\alpha_k$ is either 0 or 1.
+For the $v_k$ that are **on** the line, $\langle L(e_k),u \rangle = 0$,
+so the conditions in the above Lemma do not care whether
+$\alpha_k$ is 0 or 1.
+Thus all $\alpha_k$ satisfy the conditions of the Lemma
+and so $\mathcal{P} \subset \partial Z$.
+
+
+
+Secondly we show that $\partial Z \subseteq S_2$.
+
+Let $\mathcal{P} \subset \partial Z$ and let $\Sigma$ be the square
+whose image is $\mathcal{P}$.
+We want to show that every $x \in \Sigma$ has 2-transitions.
+
+**Case i).** $\mathcal{L}$ intersects the interior of $P$
+<br>
+Then for $k \not\in \{ i,j \}$,
+all the generators $L(e_k)$ in one contiguous sequence
+have $\langle L(e_k),u \rangle > 0$,
+and all the generators $L(e_k)$ in the other contiguous sequence
+have $\langle L(e_k),u \rangle < 0$.
+In no case is $\langle L(e_k),u \rangle = 0$.
+The Lemma then forces two possibilities for $\alpha_k$,
+and both of them have 2 transitions.
+
+**Case ii).** $\mathcal{L}$ intersects $\partial P$, but not the interior of $P$
+<br>
+We know $v_i$ and $v_j$ are on the line $\mathcal{L}$.
+Let $\mathcal{I} := \{ ~ l : v_l \in \mathcal{L} ~ \}$.
+Since $P$ is simple, the set of $v_l$ for $l \in \mathcal{I}$ is
+contiguous in $P$.
+
+If $i$ and $j$ are the only indexes in $\mathcal{I}$,
+then since $P$ is simple and convex,
+all the _other_ $v_k$ are contiguous and on one side of $\mathcal{L}$.
+So by the Lemma, for all the _other_ $v_k$ either $\alpha_k=0$ or $\alpha_k=1$.
+Therefore every $x \in \Sigma$ has 2 transitions.
+
+If $\mathcal{I}$ has more than $i$ and $j$ then the generators
+$L(e_l)$ for $l \in \mathcal{I}$ generate a non-trivial zonogon facet of $Z$.
+Recall that this facet is tiled with the standard tiling.
+Since $Z$ is pointed, the zonogon facet is also pointed.
+And since $P$ is simple, the generators of the facet are in angular order.
+By the property of the standard tiling in the [Zonotopes](zonotopes.html)
+vignette,
+we know that there are 2 transitions in the sequence of $\alpha_l$
+for $l \in \mathcal{I}$.
+Assume now that all vertices of the complementary sequence are
+on the *negative* side of $\mathcal{L}$,
+so all the complementary $\alpha_k = 0$.
+When combined with the $\alpha_l$, the result is a 2-transition sequence,
+for every $x \in \Sigma$.
+If all vertices of the complementary sequence are
+on the *positive* side of $\mathcal{L}$, then we can use the central
+symmetry of $Z$ to show that the sequence for $x$ is the reflection,
+and thus still has 2 transitions.
+$\square$
+
+
+<br><br>
+
+# Strictly Starshaped Surfaces
+
+`raytrace2trans()` is one of the important functions in the package **zonohedra**.
+It expects that the 2-transition surface is nice enough
+so that a given ray intersects the surface in a unique point.
+This section explores the mathematics of this situation.
+It is convenient to deal with abstract polyhedral surfaces in $\mathbb{R}^3$.
+
+Let $S$ be a _polyhedral_ 2-sphere,
+i.e. a sphere $\mathbb{S}^2$ that is tesselated by polygons,
+and let $f: S \to \mathbb{R}^3$ be a continuous map that is injective
+and linear on each polygon.
+One can think of $f$ as a _piecewise-linear immersion_.
+It may not be injective on all $S$, so the surface $f(S)$ may have self-intersections.
+$f(S)$ is a _polyhedral surface_ in $\mathbb{R}^3$.
+We call the surface polygons of $f(S)$ _facets_.
+Since $S$ is orientable, we can choose a normal vector $n_i$ for each facet,
+so that these normals are consistent across the edges.
+A facet and its normal defines a positive halfspace for the facet,
+and a negative halfspace for the facet.
+
+
+The example we have in mind is the 2-transition surface $S_2$
+associated with a zonohedron.
+
+Given the vectors $n_i$ and a point $p \notin f(S)$
+the _linking number_ of $p$ and $f(S)$ is defined as follows.
+Choose a ray based at $p$ and not intersecting any edge of $f(S)$;
+this is always possible.
+Now examine every intersection of the ray with the interior of a facet.
+If the ray crosses with the same orientation as $n_i$, assign a +1;
+otherwise assign a -1.
+The _linking number_ is defined to be the sum of all these +1s and -1s.
+It is independent of the chosen ray.
+Reversing the sign of every $n_i$ yields a consistent vector field
+and changes the sign of the linking number.
+The linking number is a straightforward generalization of the
+_winding number_
+of a closed polygonal curve in the plane
+and a point not on the curve.
+The linking number is the _degree_ of a certain projection map
+(sometimes called the _Gauss map_ or _linking map_) that depends on $p$ and $f(S)$.
+For more on this subject,
+see @Milnor1997 p 53
+and @Spivak1999 p. 296.
+
+Suppose now that $f: S \to \mathbb{R}^3$ is injective.
+It is well-known (@Alexander1924, @Moise1977 p. 117, and @Bing1983 p. 161)
+that $f(S)$ divides $\mathbb{R}^3$ into
+an inside region and an outside region whose intersection is $f(S)$.
+Moreover, the inside region is homeomorphic to a closed ball,
+and $f(S)$ is the boundary of that ball.
+
+
+**Definition:**
+Let $B \subset \mathbb{R}^3$ be a closed set and $b_0 \in B$.
+Then $B$ is _starshaped at_ $b_0$ iff
+for any $b \in B$ the segment $[b_0,b] \subseteq B$.
+
+**Definition:**
+Let $B \subseteq \mathbb{R}^3$ be a closed set with interior
+and $b_0 \in \operatorname{int}(B)$.
+Then $B$ is _strictly starshaped at_ $b_0$ iff
+for any $b \in B$ the half-open segment
+$[b_0,b) \subseteq \operatorname{int}(B)$.
+
+So to be strictly starshaped, the segment $[b_0,b]$
+cannot intersect $\partial B$ except possibly at $b$.
+
+We now want to extend the concept of strictly starshaped
+from bodies $B$ to surfaces $f(S)$.
+
+**Definition:**
+Let $f: S \to \mathbb{R}^3$ be as above, and $p \notin f(S)$.
+Then $f(S)$ is _strictly starshaped at_ $p$ iff $f$ is injective
+and the inside region $B$ is strictly starshaped at $p$.
+
+Note that this definition forces $p$ to be in the interior of $B$.
+
+**Theorem:** 
+Let $f: S \to \mathbb{R}^3$ be as above, and $p \notin f(S)$.
+Then these are equivalent:
+<ol type='a'>
+<li>$f(S)$ is strictly starshaped at $p$</li>
+<li>$f$ is injective, and every ray based at $p$ intersects $f(S)$ in
+exactly one point</li>
+<li>the linking number of $f(S)$ and $p$ is +1 (resp. -1) and $p$
+is in the negative (resp. positive) open halfspace of every facet of $f(S)$</li>
+</ol>
+
+`raytrace2trans()` is one of the important functions in the package **zonohedra**.
+For the function to work well, we want Property b to be true
+for the 2-transition surface $S_2$,
+but its truth or falsity is not readily computable.
+However, Property c. is easily computed, and if the surface fails the test,
+then `raytrace2trans()` issues a warning
+that the computed ray intersection may not be unique.
+
+
+<br><br>
+
+# Higher-Transition Points in the Cube $Q^n$
+
+In Section 2, the 2-transition subcomplex $Q_2^n \subset Q^n$ was defined;
+it is the subset of points with 2 transitions.
+We now want to define the number of transitions for _any_ point $x \in Q^n$.
+
+When defining the subcomplex $Q_2^n$ above,
+**Definition 2** used the set $J_2$ of all (step) functions on $[\beta_0,\beta_n]$
+that take the values 0 or 1 and have two transitions or no transitions (jumps).
+Let $J_\infty$ be the bigger set of all (step) functions on $[\beta_0,\beta_n]$
+that take the values 0 or 1 and have a finite number of transitions.
+The endpoints $\beta_0$ and $\beta_n$ are identified, to form a circle.
+Equivalently, $J_\infty$ is the set of all indicator functions
+$\mathbf{1}_{A^+}$ where $A^+$ is a finite disjoint union of arcs in the circle.
+The symbol $\infty$ does not mean that there can be infinitely many transitions;
+it means that the transition count is finite
+but can be arbitrarily large.
+The transition count is twice the number of arcs,
+so for any $f \in J_\infty$
+the transition count of $f$ is a well-defined even integer.
+
+We now want to define the transition count of $x \in Q^n$ using
+the function $p : J_\infty \twoheadrightarrow Q^n$,
+which is defined exactly as in Section 2.
+
+**Definition:** For any $x \in Q^n$ define
+\begin{equation}
+\text{transition count of} ~ x ~ := \min_{f \in p^{-1}(x)} \{ ~ \text{transition count of} ~ f ~ \}
+\end{equation}
+
+By this definition, all $x \in Q_2^n$ have 2 or 0 transitions.
+But if $x \not\in Q_2^n$ then $x$ has more than 2 transitions.
+Following @Burns2021, we say that $x$ is a _higher-transition point_.
+
+Given an $x \in Q^n$, the transition count of $x$ is easily computable.
+In the interval [0,1] the endpoints 0 and 1 are _boundary values_,
+and all other values are _interior values_.
+
+First consider the case when all coordinate values
+of $x$ are 0 or 1, so $x$ is a vertex.
+The maximum transition count is when 0 and 1 alternate.
+A little consideration of small $n$ yields the following table of counts.
+
+|               | 3 | 4 | 5 | 6 | 7 | ... | $n$ |
+|:-------------:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:---:|:-:|
+| max transition count for a vertex $x$ | 2 | 4 | 4 | 6 | 6 | ... | $2 \lfloor n/2 \rfloor$  |
+
+At the other extreme is when all coordinate values are interior values,
+so $x$ is an interior point.
+A little consideration of small $n$ shows that
+one can make $x = p(f)$ when $f$ has transition counts in this table:
+
+|               | 3 | 4 | 5 | 6 | 7 | ... | $n$ |
+|:-------------:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:---:|:-:|
+| transition count for an interior point $x$ | 4 | 4 | 6 | 6 | 8 | ... | $2 \lfloor (n+1)/2 \rfloor$  |
+
+Finally, consider the general $x \in Q^n$.
+Find all runs of interior values,
+and the 2 border values on either side of the run.
+These 2 border values are either **equal** or **not equal**.
+Let $r$ be the length of a run and look up the # of transitions
+for this specific run in this table:
+
+
+|               | 1 | 2 | 3 | 4 | ... | $r$ |
+|--------------:|:-:|:-:|:-:|:-:|:---:|:-:|
+| equal border values | 2 | 2 | 4 | 4 | ... | $2 \lfloor (r+1)/2 \rfloor$ |
+| unequal border values | 0 | 2 | 2 | 4 | ... | $2 \lfloor r/2 \rfloor$  |
+
+The numbers in the header row are the possible lengths of the run of interior values.
+For example, if the length of the run is 1, and the border values are equal
+the transition count for this sequence is 2.
+Take the sum of these counts over all runs of interior values.
+Next, strip out all interior values completely, to leave a circular sequence of 0s and 1s.
+Compute the number of transitions of this "stripped" sequence in the usual way,
+and add to the previous sum.
+This final sum is the transition count for any $x \in Q^n$.
+This shows that $p : J_\infty \twoheadrightarrow Q^n$ truly is surjective.
+
+We are mostly interested in the case when $L(x) \in \partial Z$,
+and then $x$ has at most 2 interior values and
+the length of a run of interior values is either 1 or 2.
+From the above algorithm it is clear that for a fixed parallelogram
+$\mathcal{P} \subset \partial Z$,
+and for any $x$ that maps to the interior of $\mathcal{P}$,
+the transition count of $x$ is a constant.
+Thus we can write about the transition count for any
+parallelogram $\mathcal{P} \subset \partial Z$.
+
+Given indexes $i$ and $j$ of generators of $Z$, the transition count for
+the corresponding parallelogram(s) in $\partial Z$ is fairly easy to compute.
+The algorithm is in the proof of the theorem in section 7.
+Let $\mathcal{L}$ be the line through vertices $v_i$ and $v_j$ in
+the generator polygon $P$.
+Then then transition count is the number of times that $\mathcal{L}$ cuts $P$.
+This algorithm is also present in @Brill1983.
+
+
+<br><br>
+
+# Parallelograms in $S_2$ and $\partial Z$, revisited
+
+By the previous theorem, if the generator polygon $P$ is **not**  simple and convex,
+then $S_2 \ne \partial Z$.
+This means there is a parallelogram in $S_2$ that is in the interior of $Z$.
+
+Let $\{ i,j \}$ be an unordered pair of indexes for such a parallelogram.
+Consider the slabs $\mathcal{S}^{ \{i,j\} }$ and $\mathcal{S}_2^{ \{i,j\} }$ defined above.
+For simplicity, drop the $\{ i,j \}$ to get just $\mathcal{S}$ and $\mathcal{S}_2$.
+
+Since this parallelogram in $S_2$ is in the _interior_ of the slab,
+the functional defining the slabs is not maximized on the parallelogram,
+so we call it _deficient_.
+The difference between the functional values on the two parallelograms is
+called the _deficit_.
+The corresponding parallelogram in $\partial Z$
+is called _abundant_ because every $z$ in this parallelogram
+is the image under $L$ of a higher-transition $x \in Q^n$.
+To summarize, each deficient parallogram in $S_2$ has a matching
+abundant parallelogram in $\partial Z$.
+This is illustrated in the left side of the next figure.
+The bold line segments correspond to the parallelograms and their antipodals.
+The outward-pointing normals define the functionals to be maximized.
+The 2 slabs are labeled.
+Note $\mathcal{S}_2$ is a proper subset of $\mathcal{S}$;
+in symbols $\mathcal{S}_2 \subset \mathcal{S}$.
+
+
+```{r, echo=FALSE,  message=TRUE,  warning=TRUE, fig.width=8, fig.height=3, fig.cap='Figure 10.1', out.width="100%", cache=FALSE }
+
+plot_slabs <- function()
+    {
+    plot.new()
+
+    xlim = c(-10,10)
+    ylim = c(-7,7)
+
+    theta   = 20 * pi/180
+    rot2x2  = matrix( c(cos(theta),sin(theta),-sin(theta),cos(theta)), 2, 2 )
+
+    plot.window( xlim, ylim, asp=1 )
+
+    #   big slab
+    x  = c(-15,15,15,-15)
+    y   = c(-5,-5,5,5)
+    xy  = rbind( x, y )
+
+    xyrot   = rot2x2 %*% xy
+    polygon( xyrot[1, ], xyrot[2, ], col='gray90' )
+
+    xya = cbind( c(1,5), c(4,5) )
+    xyrot   = rot2x2 %*% xya
+
+    xymid   = rowMeans(xyrot)
+
+    lines( xyrot[1, ], xyrot[2, ], lwd=5 )
+    text( xymid[1], xymid[2], "abundant", adj=c(1,-1/2) )
+
+    lines( -xyrot[1, ], -xyrot[2, ], lwd=5 )
+    text( -xymid[1], -xymid[2], "abundant", adj=c(0,3/2) )
+
+    #   small slab
+    ytop    = 2.5
+    x  = c(-15,15,15,-15)
+    y   = c(-ytop,-ytop,ytop,ytop)
+    xy  = rbind( x, y )
+
+    xyrot   = rot2x2 %*% xy
+    polygon( xyrot[1, ], xyrot[2, ], col='gray80', lty=2 )
+
+    xyd = cbind( c(-ytop,ytop), c(0,ytop) )
+    xyrot   = rot2x2 %*% xyd
+
+    xymid   = rowMeans(xyrot)
+
+    lines( xyrot[1, ], xyrot[2, ], lwd=5 )
+    text( xymid[1], xymid[2], "deficient", adj=c(1,-1/2) )
+
+    lines( -xyrot[1, ], -xyrot[2, ], lwd=5 )
+    text( -xymid[1], -xymid[2], "deficient", adj=c(0,3/2) )
+
+    xya     = cbind( c(-6,5), c(-6,5+2) )
+    xyrot   = rot2x2 %*% xya
+
+    arrows( xyrot[1,1], xyrot[2,1],  xyrot[1,2], xyrot[2,2], length=0.1, angle=20 )
+    arrows( -xyrot[1,1], -xyrot[2,1],  -xyrot[1,2], -xyrot[2,2], length=0.1, angle=20 )
+    
+    #   label both slabs
+    x0  = 7
+    
+    xy  = cbind( c( x0, (5+ytop)/2 ),  c( x0, -(5+ytop)/2 ) )
+    xyrot   = rot2x2 %*% xy
+    text( xyrot[1, ], xyrot[2, ], expression( S ) )
+
+    xy  = c( x0, 0 )
+    xyrot   = rot2x2 %*% xy
+    text( xyrot[1], xyrot[2], expression( S[2] ) )
+
+    points( 0, 0, pch=20 )
+
+    #return( TRUE )
+    }
+
+
+plot_slab <- function()
+    {
+    plot.new()
+
+    xlim = c(-10,10)
+    ylim = c(-8,8)
+
+    theta   = 20 * pi/180
+    rot2x2  = matrix( c(cos(theta),sin(theta),-sin(theta),cos(theta)), 2, 2 )
+
+    plot.window( xlim, ylim, asp=1 )
+
+    #   big slab
+    x  = c(-15,15,15,-15)
+    y   = c(-5,-5,5,5)
+    xy  = rbind( x, y )
+
+    xyrot   = rot2x2 %*% xy
+    polygon( xyrot[1, ], xyrot[2, ], col='gray80' )
+
+    xya = cbind( c(1,5), c(4,5) )
+    xyrot   = rot2x2 %*% xya
+
+    xymid   = rowMeans(xyrot)
+
+    lines( xyrot[1, ], xyrot[2, ], lwd=5 )
+    text( xymid[1], xymid[2], "coincident", adj=c(1,-1/2) )
+
+    lines( -xyrot[1, ], -xyrot[2, ], lwd=5 )
+    text( -xymid[1], -xymid[2], "coincident", adj=c(0,3/2) )
+
+    #   arrows
+    xya     = cbind( c(-6,5), c(-6,5+2) )
+    xyrot   = rot2x2 %*% xya
+
+    arrows( xyrot[1,1], xyrot[2,1],  xyrot[1,2], xyrot[2,2], length=0.1, angle=20 )
+    arrows( -xyrot[1,1], -xyrot[2,1],  -xyrot[1,2], -xyrot[2,2], length=0.1, angle=20 )
+
+    
+    #   label slab
+    xy  = c( 6, 0 )
+    xyrot   = rot2x2 %*% xy
+    text( xyrot[1], xyrot[2], expression( S[2] == S ) )
+
+    points( 0, 0, pch=20 )
+    
+    }
+    
+oldpar = par( mfrow=c(1,2)  , omi=c(0,0,0,0), mai=c(0,0.1,0,0.1) )
+
+plot_slabs() ; plot_slab()
+
+par( oldpar )
+```
+
+On the other hand,
+if a parallelogram of $S_2$ is in the boundary of the slab $\mathcal{S}$,
+then the two parallelograms are equal and we call them _coincident_.
+It means that every $z$ in this parallelogram
+is the image of an $x \in Q^n$ that has 2 (or 0) transitions.
+This is illustrated in the right side of the above figure.
+
+To get data about the abundant and coincident parallelograms in $\partial Z$,
+use the functions `transitionsdf()`, for example:
+```{r, echo=TRUE,  message=TRUE,  warning=TRUE }
+matgen = colorimetry.genlist[[2]]   # the CIE 1931 CMFs at 1nm step
+matgen = 100 * matgen / sum( matgen[2, ] )   # it's traditional to scale so the center has Y=50
+zono =  zonohedron( matgen )
+getcenter(zono) ; dim( getmatrix( getsimplified( getmatroid(zono) ) ) )
+transitionsdf( zono )
+```
+The number of (simplified) generators of `zono` is $n{=}340$,
+indexed from 360 to 699.
+So the total number of parallelograms is $340(340{-}1)=115260$.
+Data in the first row are for the coincident parallelograms, with 2 transitions.
+These form the majority of $\partial Z$,
+with about 33110/34669 = 95.5% of the surface area.
+Data in the rows below is for the abundant parallelograms.
+More transitions typically have fewer parallelograms.
+The last column has an example of a parallelogram with the given
+transition count.
+For example, there are 1802 parallelograms in $\partial Z$ with 8 transitions,
+and the one given by generators $\{ 570,608 \}$ is one of them.
+This means that the line through $v_{570}$ and $v_{608}$ cuts $P$ in 8 places.
+Here is a plot of the point in the cube that maps to the center
+of the parallelogram:
+```{r, echo=TRUE,  message=TRUE,  warning=TRUE, fig.width=6.5, fig.height=3, fig.cap='Figure 10.2', out.width="100%", cache=FALSE }
+oldpar = par( omi=c(0,0,0,0), mai=c(0.45,0.5,0.1,0) )
+gnd = getground(  getmatroid(zono)  )
+pcube = boundarypgramdata( zono, c(570,608), cube=TRUE )$pcube
+xlim = range( gnd[which(0<pcube)] ) + 20*c(-1,1)
+plot( xlim, c(0,1), type='n', xlab='', ylab='', las=1, lab=c(5,10,7), cex.axis=0.8 )
+grid( col='gray', lty=1 )
+lines( gnd, pcube, type='s' )
+par( oldpar )
+```
+Note that the values at 570 and 608 are both 1/2, and all the other values are 0 or 1.
+
+<br>
+The following figure is a helpful 3D visualization
+of *all* the abundant parallelograms:
+```{r, rgl=TRUE, dev='png', echo=TRUE,  message=TRUE,  warning=TRUE, fig.width=6.5, fig.height=4, fig.cap='Figure 10.3', fig.keep='last', fig.show='hold', out.width="100%", cache=FALSE }
+library( orientlib )
+user3x3 = orientlib::rotmatrix( orientlib::eulerzyx( -0.249417, 0.7116067, 2.324364 ) )@x
+dim(user3x3) = c(3,3)
+par3d( userMatrix=rotationMatrix(matrix=user3x3), zoom=0.35 )
+plothighertrans( zono )
+```
+In this figure, the abundant parallelograms are color-coded following @Burns2021;
+dark red for 4, yellow for 6, blue for 8, and purple for 10 transitions.
+The view is looking up the "neutral axis" with a black point at 0,
+a white point at the opposite point, and a gray point at the
+center of symmetry.
+The central symmetry of the abundant parallelograms is clear.
+Compare this with Figure 7 in @Burns2021.
+
+
+<br><br><br>
+
+# References
+
+<div id="refs"></div>
+
+
+
+
+<br><br><br>
+
+
+
+# Session Information
+
+This document was prepared
+`r format(Sys.Date(), "%a %b %d, %Y")`
+with the following configuration:
+<pre>
+```{r, echo=FALSE, results='asis'}
+options( old_opt )
+sessionInfo()
+```
+</pre>

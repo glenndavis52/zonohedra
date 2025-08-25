@@ -1,0 +1,366 @@
+---
+title: "zonohedra User Guide"
+author: "Glenn Davis"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
+    number_sections: false
+bibliography: bibliography.bib
+
+# csl: iso690-numeric-brackets-cs.csl
+csl: personal.csl
+# csl: institute-of-mathematical-statistics.csl
+# csl: transactions-on-mathematical-software.csl
+vignette: >
+  %\VignetteIndexEntry{zonohedra User Guide}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+
+```{css, echo=FALSE}
+body {
+  max-width: 750px;     /* make a little wider, default is 700px */
+}
+h1{
+  font-size: 25pt;    /* make the level 1 headers smaller */
+}
+/*
+div.figure {
+ border: 1px;
+ border-style: groove;
+}
+*/
+```
+
+
+<script>
+function ToggleDiv(ID) {
+  var D = document.getElementById("D-" + ID);
+  var B = document.getElementById("B-" + ID);
+  if (D.style.display === "none") {
+    // open the div and change button text
+    D.style.display = "block";
+    B.innerText = "Hide " + ID;
+  } else {
+    // close the div and change button text
+    D.style.display = "none";
+    B.innerText = "Show " + ID;
+  }
+}
+</script>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+old_opt = options( width=120 )
+
+# if( !file.exists("figs") ) dir.create("figs")
+
+require("rgl",quietly=TRUE)
+rgl::setupKnitr(autoprint = TRUE)
+```
+
+
+
+# Introduction
+
+A _zonohedron_ is the linear image of a high-dimensional cube
+$[0,1]^N$ to $\mathbb{R}^3$.
+A zonohedron is a special type of convex polyhedron.
+The images of the standard basis of $\mathbb{R}^N$ are called the
+_generators_ of the zonohedron.
+
+
+The goal of this package is to construct _any_ zonohedron from the generators,
+but especially the ones in these 2 families:
+<ul>
+<li> the classical zonohedra, with high symmetry </li> 
+<li> zonohedra that arise naturally from colorimetry, which may contain hundreds of generators, but little symmetry</li> 
+</ul>
+
+In the first case, 13 classical zonohedra have been taken from
+@wikiZonohedron
+and are built in to the package.
+In the second case, an _object color solid_ is viewed as a zonohedron;
+this connection was discovered by Paul Centore
+and is explained very clearly in @Centore2013.
+
+```{r, echo=TRUE,  message=FALSE}
+library(zonohedra)
+library(rgl)
+```
+
+The package dependencies are:
+
+<ul>
+<li>**rgl**  @rgl - for 3D plotting</li>
+<li>**microbenchmark**  @microbenchmark  - is suggested for its high-precision timer</li>
+<li>**logger**  @logger - for event logging</li>
+</ul>
+
+Some of the figures below are displayed with **WebGL** -
+a JavaScript API for rendering interactive 2D and 3D graphics.
+Try using the left mouse button to rotate and the scroll wheel to zoom.
+
+
+<br><br>
+
+# Polar Zonohedra
+
+The generators for a polar zonohedra are particularly simple -
+they are equally distributed on a circle that
+is in a plane parallel to the xy-plane and
+whose center is on the z-axis.
+Construct polar zonohedra with 5 and 25 generators and plot them.
+
+```{r, echo=TRUE,  message=TRUE,  warning=TRUE, fig.width=8, fig.height=4, fig.cap='polar zonohedra with 5 generators (left) and 25 generators (right) &emsp;&emsp; [both of these are interactive WebGL widgets]', fig.keep='none', fig.show='hide', out.width="100%", cache=FALSE }
+rgl::mfrow3d( 1, 2 )
+pz5 = polarzonohedron( 5 ) ;  plot( pz5, ewd=5 )
+rgl::next3d()
+plot( polarzonohedron( 25 ), ewd=3 )
+rgl::rglwidget( webgl=TRUE )
+```
+
+
+In these 2 plots, the black dot is the origin,
+the 5 vertices nearest to the origin are the 5 generators,
+and the white dot is the point (0,0,$\pi$).
+Each of the generators is assigned a unique color,
+and every other edge with that color is parallel to the generator.
+All parallelograms with an edge of that color form the
+_zone_ or _belt_ for that generator.
+Each belt is a topological annulus.
+For more details on these polar zonohedra, see @Chilton1963.
+
+Print the generators of the first zonohedron `pz5`;
+they are the columns of this 3x5 matrix.
+```{r, echo=TRUE, message=FALSE}
+getmatrix( pz5 )
+```
+
+A function similar to `polarzonohedron()` is `regularprism()`.
+
+
+
+<br><br>
+
+
+<br><br>
+
+
+# Classic Zonohedra
+
+There are 13 classic zonohedron available in the package,
+as a list of 3xN matrices,
+where N is the number of generators.
+The global data variable is 
+`classics.genlist`, with S3 class `'genlist'`.
+The 13 matrices in the list are taken from @Eppstein.
+
+```{r, echo=TRUE, message=FALSE}
+classics.genlist
+```
+
+Extract the matrix of generators for the `truncated cuboctahedron`,
+which is abbreviated by `TC`.
+
+```{r, echo=TRUE, message=TRUE}
+mat = classics.genlist[['TC']] ; mat
+```
+
+
+
+
+Create the truncated cuboctahedron and plot it, with filled faces.
+
+
+```{r, rgl=TRUE, echo=TRUE,  message=TRUE,  warning=TRUE, fig.width=8, fig.height=5, out.width="100%", fig.align="center", fig.cap='truncated cuboctahedron &emsp;&emsp;&emsp;&emsp; [This is an interactive WebGL widget]', fig.keep='last', fig.show='hide', cache=FALSE }
+rgl::par3d( userMatrix = rotationMatrix( -20*pi/180, 0, 1, 1) )
+zono = zonohedron( mat )
+plot( zono, type='f' )
+rgl::rglwidget( webgl=TRUE )
+```
+
+<br>
+Some WebM video plots in the next section are made with help of the package **av** and this function:
+
+<button id="B-spinit()" onclick="ToggleDiv('spinit()')">
+Show spinit()</button>
+<div id="D-spinit()" style="display: none">
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+#   zono        the zonohedron
+#   id          unique ID for this animation, a positive integer
+#   fps         frames per second
+#   duration    of the animation, in seconds
+#   revolutions number of revolutions
+#   vpsize      viewport size = (width,height)
+spinit <- function( zono, index, fps=5, duration=8, revolutions=1, vpsize=c(480,480) ) {
+#  enlarge viewport
+wr = par3d( "windowRect" ) 
+par3d( windowRect = c( wr[1:2], wr[1:2] + vpsize ) )
+pathtemp = tempdir()   #"./figs" ;   if( ! file.exists(pathtemp) ) dir.create(pathtemp)  # make temp folder
+#  make a lot of .PNG files in pathtemp
+movie3d( spin3d( getcenter(zono), rpm=revolutions*60/duration ), duration=duration, fps=fps, startTime=1/fps,
+           convert=F, movie='junk', dir=pathtemp, verbose=F, webshot=F )
+#  combine all the .PNGs into a single .webm
+pathvec = dir( pathtemp, pattern="png$", full=T )
+
+webm_file = sprintf( "%s/animation%g.webm", pathtemp, index )
+out = av::av_encode_video( pathvec, output=webm_file, framerate=fps, codec='libvpx-vp9', verbose=F )
+res = file.remove( pathvec )  # cleanup the .PNG files, leaving just the .webm
+
+return( out )
+}
+```
+</div>
+
+
+
+<br>
+
+Embedding videos in the HTML output is done with the help of the package **base64enc** and this function:
+
+<button id="B-video2html()" onclick="ToggleDiv('video2html()')">Show video2html()</button>
+<div id="D-video2html()" style="display: none">
+```{r, echo=TRUE, message=FALSE}
+
+video2html  <- function( path, attributes="controls loop autoplay muted" )
+    {
+    requireNamespace( "base64enc", quietly=TRUE )
+    
+    i   = regexpr( "[.][a-z]+$", path, ignore.case=T )
+    if( i < 0 ) return('')
+    ext = substring( path, i+1 )    # extract the extension, and skip over the '.'
+    
+    part1   = sprintf( '<video %s src="data:video/%s;base64,\n', attributes, ext )
+    part2   = base64enc::base64encode( path, linewidth=120, newline='\n' )
+    part3   = '"></video>'
+    
+    return( paste0( part1, part2, part3, collapse='' ) )
+    }
+```
+</div>
+
+
+<br><br>
+
+# Colorimetry Zonohedra
+
+In colorimetry, an object color solid is a zonohedron.
+
+```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.cap='object color solid', fig.keep='last', fig.show='hide', cache=FALSE }
+# colorimetry.genlist[[1]] is a 3x81 matrix with the CIE 1931 CMFs at 5nm interval
+zono5 = zonohedron( colorimetry.genlist[[1]] )
+plot( zono5, type='f' )
+webm_file = spinit( zono5, 2, vpsize=c(480,480) )
+```
+
+<div style="text-align: center">
+```{r, echo=FALSE, message=TRUE, warning=TRUE }
+video_html  = video2html(webm_file)
+knitr::raw_html( video_html, meta=NULL, cacheable=FALSE )
+unlink( dirname(webm_file) )
+```
+object color solid at 5nm interval; this zonohedron has 81 generators
+</div>
+
+In this figure, the black dot is the _black point_ [0,0,0].
+The white dot is the _white point_, i.e. the column sums of the generating matrix.
+
+
+
+
+<br><br>
+
+# Future Work
+
+Here are a few possible improvements and additions.
+
+**export**   
+There should be a way to export a zonohedron as a quadrilateral mesh in some standard format(s).
+DONE. Version 0.5-0 adds `as.mesh3d().zonohedron()`, which is derived from `rgl::as.mesh3d()`.
+
+**vignettes**  
+There should be more vignettes.
+One idea is to show ways
+to examine individual hyperplanes and facets of a zonohedron.
+Another idea is to display some interesting Minkowski sums of a few
+classic zonohedra.
+
+
+<br><br>
+
+# References
+
+<div id="refs"></div>
+
+
+<br><br>
+
+\Appendix
+
+
+<br><br>
+
+
+## Appendix A - Methods
+
+The constructor `zonohedron()` uses the optimizations in
+Paul Heckbert's memo @Heckbert1985.
+The key step is sorting points that lie on a great circle on the sphere.
+This efficient method is $O(N^2\log(N))$;
+whereas the naive method is $O(N 2^N)$.
+
+The central symmetry is used whenever possible,
+and when used this can speed things up by a factor of 2.
+To further speed things up, many of the methods use C/C++.
+
+The function `grpDuplicated()` was written by Long Qu,
+with a small modification of the return value by myself.
+It is written in C/C++ and is implemented with `std::unordered_map`.
+The code was taken from the discontinued package **uniqueAtomMat**,
+see @uniqueAtomMat.
+
+<br><br>
+
+
+## Appendix B - Logging
+
+Logging is performed using the package **logger**, see @logger.
+This is a powerful package that allows a separate configuration
+for logging from within **zonohedra**, and that is what I have done.
+During package loading, the logging threshold is changed from `INFO` to `WARN`.
+To change it back again, one can execute:  
+`library( logger )`  
+`log_threshold( INFO, namespace="zonohedra" )`
+
+The layout callback functions is customized;
+it adds the name of the calling function to the message.
+To install your own layout function, you can execute:  
+`log_layout( <your function>, namespace="zonohedra" )`
+
+The appender callback functions is also customized;
+it comes to an immediate stop if the message level is `ERROR` or `FATAL`.
+To return to the default behavior, you can execute:  
+`log_appender( appender_console, namespace="zonohedra" )`
+
+The formatter callback function is forced to be `formatter_sprintf()`;
+this should not be changed.
+
+
+<br><br>
+
+# Session Information
+
+This document was prepared
+`r format(Sys.Date(), "%a %b %d, %Y")`
+with the following configuration:
+<pre>
+```{r, echo=FALSE, results='asis'}
+options( old_opt )
+sessionInfo()
+```
+</pre>

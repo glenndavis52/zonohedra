@@ -1,0 +1,591 @@
+---
+title: "Zonotopes"
+author: "Glenn Davis"
+date: "`r Sys.Date()`"
+header-includes:
+#  - \usepackage{amsmath}
+#  - \usepackage{amssymb}
+#  - \usepackage{amsthm}
+
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+#  includes:
+#    in_header: preamble.tex    
+
+
+bibliography: bibliography.bib
+
+# csl: iso690-numeric-brackets-cs.csl
+csl: personal.csl
+vignette: >
+  %\VignetteIndexEntry{Zonotopes}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+\newcommand{\argmax}{\mathop{\mathrm{argmax}}\limits}
+\newcommand{\max}{\mathop{\mathrm{max}}\limits}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}{Corollary}[section]
+\newtheorem{lemma}{Lemma}[section]
+\newtheorem{assumption}{Assumption}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+old_opt = options( width=120 )
+
+require("rgl",quietly=TRUE)
+rgl::setupKnitr(autoprint = TRUE)
+```
+
+
+\begin{theorem}
+A test theorem
+\end{theorem}
+
+
+This vignette is a long-winded mathematical exposition on zonotopes
+that concentrates on inversion.
+Discussion of software is delayed until the end.
+Featured functions are:
+`zonoseg()`, `zonogon()`, `zonohedron()`, `invert()`, and `invertboundary()`.
+
+
+<br><br>
+
+# Basic Concepts
+
+The emphasis in this vignette are the concepts needed to understand
+the inversion functions in the **zonohedra** package.
+Much of this is based on @Ziegler2012.
+
+
+## supporting hyperplanes
+
+A _supporting hyperplane_ of a compact set $C$ in Euclidean space $\mathbb{R}^n$ is a hyperplane $P$ that has these properties:
+<ol>
+<li>$P$ intersects $C$</li>
+<li>$C$ is entirely contained in one of the two closed half-spaces defined by $P$</li>
+</ol>
+Note that the 2 properties imply that the intersection
+$P \cap C$ is a subset of the boundary of $C$.
+
+<br>
+If the compact set is a _convex body_, i.e. is convex with interior,
+then 2 equivalent properties are given by this:  
+
+**Theorem:** 
+If $B$ is a closed convex body with interior,
+then $P$ is a supporting hyperplane of $B$ iff $P$ has these properties:
+<ol type='i'>
+<li>$P$ intersects $B$</li>
+<li>$P$ does **not** intersect the interior of $B$</li>
+</ol>
+
+**Proof:**   
+not ii. $\implies$ not 2.  
+Let ii. be false, so hyperplane $P$ _does_ intersect $\operatorname{int}(B)$, at a point $p$.
+Then there is an open ball centered at $p$, and the ball is inside $B$.
+There are clearly points in the ball in _both_ halfspaces,
+and so 2. is false.
+
+not 2. $\implies$ not ii.   
+Let 2. be false, so there are points $b^-, b^+ \in B$ that are in
+_different_ open halfspaces.
+Let $b_i$ be a point in $\operatorname{int}(B)$.
+If $b_i \in P$ then ii. is false and we are done.
+Otherwise, either $b^-$ or $b^+$ are in a different halfspace than $b_i$.
+Take it to be $b^+$, w.l.o.g.
+Since $b_i$ and $b^+$ are in opposite halfspaces,
+the segment $[b_i,b^+]$ intersects $P$;
+let $c_i$ be this point of intersection.
+There is an open ball in $B$ centered at $b_i$.
+Let $C$ denote the convex hull of $b^+$ and this ball - a partial open cone.
+By convexity of $B$, $C$ is in $B$.
+There is a scaled down open ball centered at $c_i$ and contained in $C$.
+Thus $c_i \in P \cap \operatorname{int}(B)$ and ii. is false.
+$\square$
+
+
+
+
+## faces
+
+**Definition:**   
+A (proper) _face_ $F$ of a compact set $C \subset \mathbb{R}^n$
+is a subset of $C$ that has these 3 equivalent properties:
+<ol>
+<li>$F = C \cap P$ for some supporting hyperplane $P$</li>
+
+<li>$F = \argmax_{x \in C}  \langle x,w \rangle$ for some non-zero normal vector $w$</li>
+
+<li>$F = \argmax_{x \in C}  \lambda(x)$ for some non-zero linear functional $\lambda : \mathbb{R}^n \to \mathbb{R}$</li>
+</ol>
+The equivalence 1 and 2 is straightforward,
+and the equivalence of 2 and 3 is trivial.
+
+The entire set $C$ is considered to be an (improper) face.
+
+The _dimension of a face_ is the dimension of the affine subspace
+spanned by the face.
+From now on, We always assume that the dimension of $C$ is $n$,
+which is equivalent to $C$ having an interior.
+
+A _d-face_ is a face of dimension _d_.
+So a _0-face_ is a _vertex_, and a _1-face_ is an _edge_.
+A _facet_ is an ($n{-}1$)-face, and a maximal proper face.
+
+Note that every face of the cube $[0,1]^n \subset \mathbb{R}^n$
+is a cube of smaller dimension;
+in fact the dimension is the number of 0s in the normal vector $w$ from
+part 2 of the above definition.
+
+Let $A : \mathbb{R}^n \twoheadrightarrow \mathbb{R}^m$ be a
+surjective affine map (so $m \le n$),
+and let $C':= A(C)$.
+
+**Theorem:** If $F'$ is a face of $C'$, then $A^{-1}(F')$  is a face of $C$.
+
+Stated in words, the affine preimage of a face is a face.
+
+**Proof:**
+Use part 3 of the above definition so $F' = \argmax_{y \in C'} \lambda(y)$,
+where $\lambda$ is a non-zero linear functional on $\mathbb{R}^m$.
+Let $\mu := \max_{y \in C'} \lambda(y)$.
+Now $A^{-1}(F') = A^{-1}( \lambda^{-1}(\mu) ) = (\lambda \circ A)^{-1}(\mu)$.
+But $\lambda \circ A$ is a non-zero linear functional
+on $\mathbb{R}^n$, plus a constant.
+$\square$
+
+See also @Ziegler2012, Lemma 7.10.
+
+
+## a zonotope and its generators
+
+**Definition:**
+A _zonotope_ $Z$ is a set of the form $L([0,1]^n) + z_0$
+where $L : \mathbb{R}^n \twoheadrightarrow \mathbb{R}^m$ is a surjective linear map. 
+
+Simply stated, a zonotope is an linear image of a cube plus a translation
+(an affine image of a cube).
+
+Since the cube is convex, the zonotope is also convex.
+
+The $n$ _generators_ of $Z$ are the images of the $n$ elementary vectors
+$L(e_1), ... , L(e_n)$.
+A point $z \in Z$ iff
+$z = \alpha_1 L(e_1) ~+~ ... ~+~ \alpha_n L(e_n) + z_0$ with all $\alpha_i \in [0,1]$.
+
+A zonotope is centrally symmetric about the point $L(1/2,...,1/2) + z_0$.
+By reflecting through the center of symmetry,
+each facet of $Z$ has a corresponding _antipodal_ facet.
+The facets come in antipodal pairs.
+
+Given a face $F$ of zonotope $Z$, the preimage of $F$ is a face $F'$
+of the cube.
+But every face of a cube is also a cube, and so $F$ is also a zonotope.
+Let the normal vector of the supporting hyperplane of $F'$ be $w$.
+Then the vectors $\{ \ L(e_i) | w_i=0 \ \}$ are all parallel
+to the face $F$, and in fact they generate the linear subspace parallel to $F$.
+We call $\{ \ L(e_i) | w_i=0 \ \}$ the _generators_ of $F$.
+And important fact:
+the number of generators of $F$ is the dimension of the preimage $F'$.
+Note that a face of dimension $d$ may have _more_ than $d$ generators,
+because they may be linearly dependent.
+For a parallelogram face, even if no generators are 0, the face may have more
+than 2 generators because some may be multiples of others.
+
+If the dimension of $Z$ is $m$, we call it an _m-zonotope_.
+
+**Theorem:** If $K$ is the convex hull of a finite set of points in $\mathbb{R}^n$, with $n \ge 3$.
+Then $K$ is an $n$-zonotope iff all facets of $K$ are ($n{-}1$)-zonotopes.
+
+For a proof of this hard result, plus much more, see @Bolker1969.
+
+
+A zonotope of dimensions 1, 2, and 3
+is called a _zonoseg_ , _zonogon_, and _zonohedron_, respectively.
+The term "zonoseg" is mine, since I could not find a term for it in the literature.  Geometrically a zonoseg is just a line segment.
+
+A zonoseg has only two faces - the endpoints of the segment.
+
+A zonogon is a convex polygon with 0-faces (vertices) and 1-faces (edges).
+Since the dimension of an edge is 1 less than the
+dimension of the zonogon, an edge of a zonogon is also a facet.
+It can be shown that a convex polygon is a zonogon iff it is centrally symmetric.
+
+A zonohedron has 0-faces (vertices), 1-faces (edges), and 2-faces (facets).
+All the facets are zonogons.
+A parallelogram facet is called _trivial_,
+and facets with more than 4 edges are _non-trivial_.
+
+
+## convex cones and zonotopes
+
+Let $\mathbb{R}^n_{\ge 0} := \{ \ (x_1,x_2,...x_n) \ | \ x_i \ge 0 \ \}$
+denote the non-negative orthant in $\mathbb{R}^n$.
+
+A _convex cone_ $K$ is a set of the form $K = L(\mathbb{R}^n_{\ge 0})$,
+where $L : \mathbb{R}^n \twoheadrightarrow \mathbb{R}^m$
+is a surjective linear map.
+The $n$ _generators_ of $K$ are the images of the $n$ elementary vectors
+$L(e_1), ... , L(e_n)$.
+$K$ is the set of all non-negative linear combinations of the generators.
+
+If $K$ is a subset of a closed linear halfspace, it is called _salient_.
+If $K$ is a subset of an open linear halfspace
+(except for the vertex 0), it is called _pointed_.
+These properties are equivalent to 0 being in the boundary of $K$,
+and being a vertex of $K$, respectively.
+Obviously, pointed implies salient, but salient does not imply pointed.
+
+Given a zonotope $Z = L([0,1]^n) + z_0$ the map $L$ also defines
+a convex cone $K$.
+$Z$ is a subset of $K$, after translating $Z$ by $-z_0$.
+We carry the two above properties of $K$ over to $Z$.
+It is straightforward to show that
+$Z$ is _salient_ iff $z_0$ is in the boundary of $Z$,
+and 
+$Z$ is _pointed_ iff $z_0$ is a vertex of $Z$.
+
+If $Z$ is pointed then there is a "cutting plane" that has $z_0$
+on one side, and all the other vertices on the other side.
+The intersection of this cutting plane and $Z$ is called the
+_vertex figure_ of $Z$ at $z_0$.
+The vertex figure is actually more general,
+and is defined for any vertex of a convex polyhedron,
+see @Ziegler2012, p. 54.
+In the case that $Z$ is a zonohedron,
+the vertex figure at $z_0$ is a a convex polygon that we call the
+_generator polygon_.
+The polygon is only unique up to a 2D projective transformation.
+
+
+
+## matroids and zonotopes
+
+This section assumes some knowledge of _matroids_;
+for background on them see the [Matroids](matroids.html) vignette.
+
+Given a zonotope $Z = L([0,1]^n) + z_0$ as above,
+the generators define a matroid $M$.
+Since $L$ is surjective, $\mathrm{rank}(M) = m$.
+A hyperplane of $M$ corresponds to a pair of antipodal facets of $Z$
+(the concept of _hyperplane_ here is the the one used in matroid theory).
+
+Assume now that $m=3$, so $Z$ is a zonohedron
+and all its facets are zonogons.
+If $M$ is simple, then the number of sides
+of a zonogon facet is twice the number of points in the corresponding hyperplane.
+So a parallelogram corresponds to a hyperplane with 2 points,
+which is called a _trivial_ hyperplane.
+
+
+
+<br><br>
+
+# Inversion
+
+As before,
+let $L : \mathbb{R}^n \twoheadrightarrow \mathbb{R}^m$ be a surjective linear map,
+and let $Z := L([0,1]^n) + z_0$ for some $z_0 \in \mathbb{R}^m$.
+
+From this setup, given a point $z \in Z$,
+we know that the equation
+\begin{equation}\tag{$\star$}
+L(x) + z_0 = z  ~~~~ \textrm{for} ~ x \in [0,1]^n
+\end{equation}
+has a solution $x$.
+The rest of this section looks at the solutions of
+($\star$) in more depth.
+
+## a uniqueness theorem
+
+In this section we consider the question:
+When is the solution of $(\star)$ unique ?
+
+In the interior case, the answer is straightforward.
+
+**Lemma:**
+If $z$ is in the interior of $Z$, then the solution of $(\star)$ is unique iff $n=m$.
+
+**Proof:**
+If $n=m$ then $L$ is invertible so we are done.
+If $n>m$ the nullspace of $L$ has positive dimension $n-m$.
+By Theorem 4.2 of @Davis2018, we can pick an $x \in \operatorname{int}([0,1]^n)$
+that satisfies $(\star)$.
+Let $U \subset [0,1]^n$ be an open ball around $x$;
+the intersection of the nullspace with $U$ is an infinite set.
+$\square$
+
+For $z \in Z$, let $F_z$ be the smallest face that contains $z$,
+i.e. the intersection of all faces that contain $z$.
+It is clear that $z$ is in the _relative interior_ of $F_z$,
+i.e. $z \in \operatorname{relint}(F_z)$.
+At the extremes, if $z$ is a vertex then $F_z$ is $\{ z \}$,
+and if $z$ is in the interior of $Z$, then $F_z$ is $Z$
+(here we allow $Z$ itself as an improper face).
+The relative interiors of the faces form a partition of $Z$,
+see @Ziegler2012, p. 61.
+
+
+**Theorem:** Let $z$ and $Z$ and $F_z$ be as above.
+Then the solution of $(\star)$
+is unique iff the number of generators of $F_z$ is
+equal to the dimension of $F_z$.
+
+**Proof:**
+The condition says that the dimension of the preimage of $F_z$
+is the dimension of $F_z$.
+Now apply the Lemma, with $Z$ replaced by the preimage of $F_z$.
+$\square$
+
+
+It is useful to reformulate the uniqueness theorem for the specific
+case when $Z$ is a zonohedron ($m=3$).
+
+**Theorem:** Let $z$ be in a zonohedron $Z$.
+If $n>3$, then the solution of $(\star)$ is unique iff
+none of the generators of $Z$ are 0 and:
+
+$z$ is a vertex of $Z$  
+or
+$z$ is in an edge of $Z$, and the edge has one generator  
+or
+$z$ is in a parallelogram facet of $Z$, and the parallelogram has two generators
+
+If the matroid of $Z$ is simple, i.e. no generators of $Z$
+are 0 or multiples of each other, then this simplifies to:
+
+**Theorem:** Let $z$ be in a zonohedron $Z$ whose matroid is simple.
+If $n>3$, then the solution of $(\star)$ is unique iff
+$z$ is in an edge or a parallelogram facet.
+
+And for a zonogon we have:
+
+**Theorem:** Let $z$ be in a zonogon $Z$ whose matroid is simple.
+If $n>2$, then the solution of $(\star)$ is unique iff
+$z$ is in the boundary of $Z$  (denoted by $\partial Z$).
+
+
+## a right inverse on the boundary of a zonogon
+
+```{r, echo=TRUE,  message=FALSE}
+library(zonohedra)
+```
+
+Let $Z$ be a zonogon whose matroid is simple.
+By the previous theorem there is a unique function
+$\sigma : \partial Z \to [0,1]^n$ that is a
+_right inverse_ for $x \mapsto L(x)+z_0$.
+We have $L( \sigma(z) ) + z_0 = z$ for all $z \in \partial Z$.
+
+Question: Is $\sigma()$ continuous ?
+
+Well, on each edge it is linear, and so certainly continuous.
+Moreover, on each vertex is is uniquely defined, and so the separate
+linear maps on each edge must match up on the vertices.
+So yes, $\sigma()$ is continuous; in fact it is _piecewise-linear_.
+
+It is instructive to consider a very specific case.
+Consider the figure:
+
+```{r, echo=TRUE,  message=TRUE,  warning=TRUE, fig.width=6, fig.height=4, fig.cap='', out.width="80%", cache=FALSE }
+zono =  polarzonogon( 14, 4 )
+oldpar = par( omi=c(0,0,0,0), mai=c(0.8,0.7,0.7,0.2) )
+plot( zono, elabels=T )
+par( oldpar )
+```
+
+Denote the 4 generators by $z_1, z_2, z_3, z_4$;
+these are labeled in the figure by just the indexes.
+Along the bottom edge, $x_1$ increases from 0 to 1,
+while the other $x$'s are 0.
+When the first vertex $z_1=(1,0)$ is reached, $x_1$ remains at 1,
+and on the 2nd edge $x_2$ increases from 0 to 1,
+until the next vertex $z_1+z_2$, etc.
+At any point on the lower boundary
+$x = (1,...,1,\alpha,0, ... ,0)$;
+i.e. a run of 1s, then an arbitrary $\alpha \in [0,1]$,
+and then a run of 0s.
+Both runs are allowed to be empty.
+Similarly, along the upper boundary $x = (0,...,0,\alpha,1, ... ,1)$.
+These two "low-pass" and "high-pass" filters are analogous
+to Goethe's _edge colors_ (Kantenfarben), see @Koenderink p. 17.
+
+
+
+## extending the right inverse, using parallelogram tilings
+
+In the previous section, the right inverse $\sigma()$ was only
+defined on $\partial Z$.
+
+Question: Is there a way to extend $\sigma()$ across the interior ?
+
+The answer lies in parallelogram tilings.
+Consider the figure:
+```{r, echo=TRUE,  message=TRUE,  warning=TRUE, fig.width=6, fig.height=4, fig.cap='', out.width="80%", cache=FALSE }
+oldpar = par( omi=c(0,0,0,0), mai=c(0.8,0.7,0.7,0.2) )
+plot( zono, tiling=T, elabels=T, tlabels=T )
+par( oldpar )
+```
+
+The labels inside the parallelogram tiles are the generators of the tiles.
+For points inside the 3 tiles that meet 0, the values of $x_i$ are obvious.
+For a point inside tile
+<span style="color: red;">1,3</span>,
+$x_2=1$ and $x_1$ and $x_3$ vary in [0,1].
+
+The rule for a point $z$ is to locate the tile containing $z$
+and then the _origin_ of the tile.
+Next, locate a path of tile edges from 0 to the origin,
+and that determines the $x$ coordinate alues that are 1.
+The $x$ coordinate values for the tile generators are the 2 coordinates
+of $z$ in the tile relative to the origin, and all other $x$ values are 0.
+For tile
+<span style="color: red;">1,4</span>
+there are 2 different paths to the origin of the tile,
+but it doesn't matter since the $x$ indexes
+on the different paths are the same: 2 and 3.
+In general, two different paths are connected by a homotopy
+that "crosses" one parallelogram at a time,
+and each time, the 2 associated $x$ indexes are the same.
+
+It is straightforward to verify that the right inverse $\sigma()$
+defined by this rule is continuous.
+
+The above tiling is just one of many,
+and each different tiling generates a different right inverse.
+For the 4-generator zonogon above, the number of different tilings is 8.
+This sequence increases very rapidly with $n$;
+for $n{=}8$ generators (16 sides) the number of
+tilings is already more than $10^6$, see @A006245.
+
+The above tiling is
+an example of the _standard tiling_ in the **zonohedra** package,
+which is generated by the following recipe.
+Each generator is "lifted" to $\mathbb{R}^3$
+by the mapping $(x,y) \mapsto (x,y,\sqrt{x^2+y^2})$.
+The mapping "lifts" each generator to the cone $x^2 + y^2 = z^2$.
+The lifted generators generate a zonohedron,
+which has an upper half and a lower half.
+The faces in the lower half are the ones that can be _seen_
+from a a viewpoint far below the $xy$-plane, see @Ziegler2012, p. 130.
+The parallelogram facets in the _lower_ half are projected down to
+$\mathbb{R}^2$ and these form the _standard tiling_.
+
+The standard tiling has the following nice property:
+if the zonogon is pointed,
+and the generators are in order by angle (clockwise or counterclockwise),
+then every point $\sigma(z)$ has 2 _transitions_,
+and the run of 1s does not wrap around.
+For the definition of a 2-transition point of the cube,
+see the
+[The 2-Transition Subcomplex and the 2-Transition Surface](transitions.html) vignette.
+The 2-transition concept is important for zonohedra coming
+from colorimetry.
+The standard tiling is denoted by $T_{min}$ in @Henriques2007 p. 13,
+where the 2-transition property is also noted in equation (12).
+
+
+
+## a right inverse on the boundary of a zonohedron
+
+In this section,
+let $Z$ be a zonohedron whose matroid is simple, with $n{>}3$.
+
+Assume for simplicity that all facets are parallelograms.
+Then by a previous theorem there is a unique function
+$\sigma : \partial Z \to [0,1]^n$ that is a
+_right inverse_ for $x \mapsto L(x)+z_0$.
+This right inverse is unique on the edges,
+which implies that $\sigma()$ is continuous.
+
+Each parallelogram is the image of a square in $[0,1]^n$,
+and the squares are "glued" together on the edges
+to form a "surface" (in fact a topological sphere)
+embedded in $[0,1]^n$.
+We see another example of this in the
+[The 2-Transition Subcomplex and the 2-Transition Surface](transitions.html) vignette.
+
+Now suppose that a facet of $Z$ is an arbitrary zonogon,
+with a high number of generators.
+Then by rotating this non-trivial facet to the plane,
+and choosing the standard tiling, we can use the construction
+in the previous section to extend the right inverse across this facet.
+Once again, the right inverse is unique on the edges,
+which implies that the extended $\sigma()$ is continuous.
+
+To summarize this section,
+a right inverse $\sigma()$ defined on $\partial Z$ always exists
+and is continuous,
+but is only unique up to the selected tiling of the
+non-trivial facets of $Z$.
+
+
+<br><br>
+
+# Software
+
+The above sections are mathematical in nature.
+This sections is about the implementation of the above
+in the software package **zonohedra**.
+
+The package only supports zonotopes of dimensions 1, 2, and 3,
+which are called _zonosegs_, _zonogons_, and _zonohedra_, respectively.
+
+The extra generality of the translation $z_0$ turned out to be an unnecessary
+complication.
+Thus, in the package, the constructors
+`zonoseg()`, `zonogon()`, and `zonohedron()` only take a matrix argument,
+and not $z_0$.
+
+Many of the above theorems require that the matroid associated with
+$Z$ is simple.
+In the non-simple matroid case, the package ignores all generators that are 0.
+And for a multiple group, when all the generators are positive multiples
+of each other, it replaces these generators by their sum.
+When some generators are negative multiples of each other,
+the situation is more complicated and not yet documented.
+The zonohedron is then computed from these "simplified" generators,
+which has a simple matroid.
+
+
+In many calculations, the central symmetry is used to reduce storage.
+For example, only one facet in a pair of antipodal facets needs to be stored,
+and the other can easily be derived by reflection.
+In some cases, the symmetry is also used to reduce computation time.
+
+The section **extending the right inverse, using parallelogram tilings**
+is implemented in the function `invert()`,
+which takes the zonogon as argument.
+The section **a right inverse on the boundary of a zonohedron**
+is implemented in the function `invertboundary()`,
+which takes the zonohedron as argument.
+
+For a pointed zonohedron $Z$, the function `plotpolygon()` plots
+the generator polygon for $Z$ at 0.
+
+<br><br><br>
+
+# References
+
+<div id="refs"></div>
+
+
+<br><br>
+
+# Session Information
+
+This document was prepared
+`r format(Sys.Date(), "%a %b %d, %Y")`
+with the following configuration:
+<pre>
+```{r, echo=FALSE, results='asis'}
+options( old_opt )
+sessionInfo()
+```
+</pre>

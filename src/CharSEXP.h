@@ -1,0 +1,72 @@
+#ifndef R_R_H
+#include <R.h>
+#endif
+
+#ifndef R_INTERNALS_H_
+#include <Rinternals.h>
+#endif
+
+#include <cstring>
+
+/* 
+	NOTE: R_NaString is a different SEXP than mkChar("NA"), but holding the same string "NA". 
+		  We will treat R_NaString to be smaller than every usual string, including mkChar("NA"). 
+          Real NaN becomes mkChar("NaN") by as.character();
+          Real -Inf becomes mkChar("-Inf") by as.character();
+          Real  Inf becomes mkChar("Inf") by as.character();
+*/
+
+class CharSEXP{
+	public:
+		SEXP sexp;
+		inline bool valid() {return( TYPEOF(sexp) == CHARSXP );}
+		
+		CharSEXP(SEXP x)
+		{
+			if (TYPEOF(x) == CHARSXP) sexp = x;
+			else Rf_error("CharSEXP should be initialized with a CHARSXP type object");
+		}
+				
+		CharSEXP()
+		{
+			sexp = R_NaString; 
+		}
+		
+		friend inline bool operator< (const CharSEXP& lhs, const CharSEXP& rhs) 
+		{
+			if (lhs.sexp == R_NaString) return( rhs.sexp != R_NaString );
+			if (rhs.sexp == R_NaString) return(false);
+			return( 
+				strcmp(const_cast<const char*>(CHAR(lhs.sexp)), const_cast<const char*>(CHAR(rhs.sexp)) )<0
+			); 
+		}
+		
+		friend inline bool operator== (const CharSEXP& lhs, const CharSEXP& rhs) 
+		{	
+		    return (lhs.sexp == rhs.sexp);  // R CHARSXP objects are cached (only one copy per string)
+		    /* return( 
+		     strcmp(const_cast<const char*>(CHAR(lhs.sexp)), const_cast<const char*>(CHAR(rhs.sexp)) )==0
+		    ); */
+		}
+
+		/*
+		friend inline bool operator> (const CharSEXP& lhs, const CharSEXP& rhs) 
+		{
+			if (rhs.sexp == R_NaString) return( lhs.sexp != R_NaString );
+			if (lhs.sexp == R_NaString) return(false);
+			return( 
+				strcmp(const_cast<const char*>(CHAR(lhs.sexp)), const_cast<const char*>(CHAR(rhs.sexp)) )>0
+			); 
+		}
+			
+		 
+					
+		friend inline bool operator!= (const CharSEXP& lhs, const CharSEXP& rhs) 
+		{ 
+			return( lhs.sexp != rhs.sexp);
+		}
+		 */
+};
+
+
+

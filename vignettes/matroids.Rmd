@@ -1,0 +1,431 @@
+---
+title: "Matroids"
+author: "Glenn Davis"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
+    number_sections: false
+bibliography: bibliography.bib
+
+# csl: iso690-numeric-brackets-cs.csl
+csl: personal.csl
+# csl: institute-of-mathematical-statistics.csl
+# csl: transactions-on-mathematical-software.csl
+vignette: >
+  %\VignetteIndexEntry{Matroids}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+
+```{css, echo=FALSE}
+body {
+  max-width: 750px;     /* make a little wider, default is 700px */
+}
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+old_opt = options( width=120 )
+
+```
+
+<br><br>
+
+# Introduction
+
+The focus of this vignette is the `zonohedron()` constructor
+and specifically its tolerance argument `e2`,
+whose default value is `1.e-10`.
+
+One goal of the **zonohedra** package is to handle all possible
+zonogon facets, not just the parallelograms in the generic case.
+The input to the constructor is matrix whose columns are the generators
+of the zonohedron.
+The generators of a specific facet span a plane, and adding another
+generator increases the span to all of $\mathbb{R}^3$.
+Stated another way, the set of generators of a specific facet has rank 2,
+and is maximal with respect to this property.
+So a naive way of determining the facets is to examine *all* subsets
+of the generators and determine whether each one has this property.
+
+This is hopelessly impractical.
+Moreover, although the rank function is well-defined for matrices with
+numbers in $\mathbb{R}$,
+it is not computationally meaningful for floating-point numbers.
+For example, if a set of floating-point vectors spans the xy-plane,
+their rank is unambiguously 2; the smallest singular value is 0.
+But if the set is given a random rotation,
+the smallest singular value will be very small, but non-zero.
+Some sort of tolerance is needed.
+
+The central dogma is that there are vector generators in $\mathbb{R}^3$
+that are very close to the given (dyadic rational floating point) vectors,
+and have actual rank 2.
+The package does a feasibility test that the floating point generators
+could have come from true real vectors.
+This test comes from the axioms of matroid theory.
+
+The facet-finding method chosen for `zonohedron()` does not use rank,
+but it also requires a tolerance - the argument `e2`.
+
+The computational steps in `zonohedron()` are:
+<ol>
+<li>
+Eliminate the zero generators; argument `e0` is used here
+</li>
+<li>
+Unify the non-zero generators that are multiples of each other;
+argument `e1` is used here.
+Every set of two distinct generators $\{ v_i, v_j \}$ now has rank 2,
+so their cross-product $v_i \times v_j \neq 0$.
+</li>
+<li>
+Compute all pairwise cross-products of the generators,
+and unitize them to the unit sphere.
+For generators $v_i$ and $v_j$, denote the unit vector by
+$u_{i,j} := v_i \times v_j / || v_i \times v_j ||$.
+</li>
+<li>
+Perform a cluster analysis for the unitized cross-products,
+using `e2` as a "pseudo-angular" threshold.
+Special measures are taken so that vector $u_{i,j}$ is considered
+identical to $-u_{i,j}$.
+</li>
+<li>
+for each cluster of unit vectors,
+take all the generators associated with this cluster and call them
+the generators of a pair of antipodal facets.
+Most of the clusters have only one unit vector,
+and thus only 2 generators of antipodal parallelogram facets.
+But some facets may have 3 or even more generators.
+</li>
+<li>
+Perform a feasibility test on these subsets of generators,
+and if the test fails, the zonohedron is invalid and the constructor fails.
+This test depends on the hyperplane axioms of matroid theory,
+and is outlined in the rest of the vignette.
+</li>
+</ol>
+
+
+
+<br><br>
+
+# Rank Functions
+
+Let $E$ be a finite set of vectors in $\mathbb{R}^n$.
+For any $A \subseteq E$ the _rank function_
+$r(A) := \operatorname{dim}( \operatorname{span}(A) )$
+has these properties:
+<ul style="line-height: 2em; margin-bottom: 15px">
+<li style="list-style: none">
+(R1)  $0 \le r(A) \le |A|$  (_cardinality bound_)
+</li>
+<li style="list-style: none">
+(R2)  If $A \subseteq B$, then $r(A) \le r(B)$  (_monotonicity_)
+</li>
+<li style="list-style: none">
+(R3)  $r(A \cup B) + r(A \cap B) \le r(A) + r(B)$  (_submodularity_)
+</li>
+</ul>
+
+If $E$ is changed to be just a set of abstract _points_,
+then an integer-valued function defined on subsets of
+$E$ that satisfies the axioms
+(R1), (R2), and (R3) defines a _matroid_ on the _ground set_ $E$.
+The _rank_ of the matroid is defined to be $r(E)$.
+We mostly follow references @Welsh1976 and @White1986.
+
+A given matroid $M$ may not be represented by a set of vectors in $\mathbb{R}^n$.
+But if it _is_, we say that $M$ is _representable over_ $\mathbb{R}$.
+We also say that $M$ is a _vector matroid_.
+
+From (R1) it follows that a point has rank 0 or 1.
+A point of rank 0 is called a _loop_;
+in a vector matroid a loop corresponds to the 0 vector.
+A _multiple group_ is a subset of size 2 or more,
+which has rank 1, and with all points of rank 1,
+and which is maximal.
+In a vector matroid a multiple group is a maximal set of
+2 or more non-zero vectors
+that are all multiples of each other.
+
+A _simple matroid_ is a matroid with no loops or multiple groups.
+
+A rank function is defined for every subset of $E$,
+and is much too large to deal with directly.
+Matroid theory provides more efficient alternatives.
+
+<br><br>
+
+
+
+# Matroid Hyperplanes
+
+In a matroid $M$ on a ground set $E$, a _hyperplane_ is a maximal subset
+$H \subseteq E$ with $r(H)=r(E)-1$.
+
+One can show that the set of hyperplanes has these properties:
+<ul style="line-height: 2em; margin-bottom: 15px">
+<li style="list-style: none">
+(H1)
+$E$ is not a hyperplane (_nontriviality_)
+</li>
+<li style="list-style: none">
+(H2)
+if $H_1$ and $H_2$ are hyperplanes and $H_1 \subseteq  H_2$,
+then $H_1 = H_2$  (_incomparability_)
+</li>
+<li style="list-style: none">
+(H3)
+if $H_1$ and $H_2$ are distinct hyperplanes and $x \in E$,
+then there is a hyperplane $H_3$ with
+$(H_1 \cap H_2) \cup x \subseteq H_3$  (_covering_)
+</li>
+</ul>
+For a proof see @Welsh1976 p. 39.
+
+Conversely,
+if a collection of subsets of $E$ satisfies the axioms (H1), (H2) and (H3),
+then the collection defines a valid rank function and a matroid on $E$.
+To do this, first define the _corank_ function $c()$ by:
+\begin{equation}
+c(A) := \max \Bigl\{ k : \text{there are hyperplanes } H_1,..., H_k
+\text{ where for all } j,
+A \subseteq H_j \text{ and } H_1 \cap ... \cap H_{j-1} \nsubseteq H_j \Bigr\}
+\end{equation}
+And now define $r(A) := c(\varnothing) - c(A)$.
+This function $r()$ satisfies the axioms (R1), (R2), and (R3).
+The above formula appears in @White1986 p. 306, without a proof.
+
+Given a collection of hyperplanes, checking the hyperplane axioms
+(H1), (H2), and (H3)
+is more efficient than checking the rank function axioms
+(R1), (R2), and (R3),
+but _still_ too time-consuming in practice.
+
+<br><br>
+
+
+# Matroid Circuits
+
+In a matroid $M$ on a ground set $E$, a _circuit_ is a subset
+$C \subseteq E$ with
+$r(C)=|C|-1$ and $r(C - x) = r(C)$ for all $x \in C$.
+
+One can show that the set of circuits has these properties:
+<ul style="line-height: 2em; margin-bottom: 15px">
+<li style="list-style: none">
+(C1)
+$\varnothing$ is not a circuit (_nontriviality_)
+</li>
+<li style="list-style: none">
+(C2)
+if $C_1$ and $C_2$ are circuits and $C_1 \subseteq  C_2$,
+then $C_1 = C_2$  (_incomparability_)
+</li>
+<li style="list-style: none">
+(C3)
+if $C_1$ and $C_2$ are distinct circuits and $x \in E$,
+then there is a circuit
+$C_3 \subseteq(C_1 \cup C_2) - x$  (_weak elimination_)
+</li>
+</ul>
+For a proof see @Welsh1976 p. 9.
+
+Conversely,
+if a collection of subsets of $E$ satisfies the axioms (C1), (C2) and (C3),
+then the collection defines a valid rank function and a matroid on $E$.
+\begin{equation}
+r(A) := |A| - \max \Bigl\{ k : \text{there are circuits } C_1,..., C_k
+\text{ where for all } j,
+C_j \subseteq A \text{ and } C_j \nsubseteq C_1 \cup ... \cup C_{j-1}  \Bigr\}
+\end{equation}
+This formula appears in @White1986 p. 306, without a proof.
+
+A circuit of size 1 is a loop.
+A circuit of size 2 is a pair of points in a multiple group.
+Recall that _simple matroid_ is a matroid with no loops or multiple groups.
+Thus, a simple matroid is a matroid with no circuits of size 1 or 2.
+
+<br><br>
+
+# Efficient Checking of Hyperplane Axioms
+
+In this section we derive an efficient way to check
+the hyperplane axioms, but only in the case when the matroid rank is 3.
+
+Given an integer $d \ge 1$ a $d$-_partition of_ $E$ is a collection
+of subsets of $E$, called _blocks_, with these properties:
+<ul style="line-height: 2em; margin-bottom: 15px">
+<li style="list-style: none">
+(D1) there are 2 or more blocks
+</li>
+<li style="list-style: none">
+(D2)
+each block has $d$ or more points
+</li>
+<li style="list-style: none">
+(D3)
+every $d$-element subset of $E$ is a subset of exactly one block
+</li>
+</ul>
+One can show that the blocks of a $d$-partition satisfy the hyperplane axioms
+(H1), (H2), and (H3).
+For a proof see @Welsh1976 p. 40.
+The resulting matroid on $E$ is called a _paving matroid_
+and has rank $d{+}1$.
+Note that the 3 properties of a $d$-partition can be checked efficiently.
+
+**Theorem**
+A matroid of rank $r \ge 2$ is a paving matroid
+if and only if
+every circuit has size $r$ or greater.
+
+**Proof** See @Welsh1976, p. 40.
+
+<br>
+
+**Theorem**
+A simple matroid $M$ of rank 3 is a paving matroid.
+
+**Proof** (trivial)
+Since $M$ is simple no circuit has size 1 or 2.
+Therefore every circuit has size 3 or greater.
+By the previous theorem, $M$ is paving.  $\square$
+
+Given a set of proposed hyperplanes for a matroid of rank 3,
+we finally have an efficient way to check the hyperplane axioms,
+by checking the $d$-partition block axioms instead.
+<ol>
+<li>simplify the hyperplanes</li>
+<li>verify (D1) and (D2), which are linear in the number of hyperplanes</li>
+<li>verify (D3), which is quadratic in the number of generators</li>
+</ol>
+For the hyperplane simplification in item 1,
+the number of hyperplanes is preserved,
+but all loops are removed,
+and every generator except one from each multiple group are removed. 
+
+
+
+<br><br>
+
+# Conclusion and Conjecture
+
+To summarize, let $E$ be a finite set of floating point 3D vectors,
+with no vector equal to 0 and no vector a multiple of another (with tolerances).
+The vectors generate a zonohedron.
+A collection of subsets of $E$ is then computed, with each subset coplanar,
+or very close to coplanar using the tolerance parameter `e2` discussed above.
+Each subset is the proposed set of generators of a facet of the
+generated zonohedron, and all facets are represented.
+These subsets are proposed as the hyperplanes of a matroid.
+We have shown that:
+
+<blockquote>
+If $E$ can be slightly perturbed to a set of actual real
+vectors $E' \subset \mathbb{R}^3$, so that the rank of each real hyperplane
+is 2, and is maximal w.r.t. this property,
+then these hyperplanes satisfy properties (D1), (D2), and (D3).
+</blockquote>
+
+In the software package, we use the contrapositive form:
+
+<blockquote>
+If these proposed hyperplanes do not satisfy (D1), (D2), and (D3),
+then the hyperplanes do not form a valid matroid,
+and $E$ _cannot_ be slightly perturbed to satisfy the desired rank=2 property.
+</blockquote>
+
+Even if the matroid is valid, the perturbation $E'$ may not exist,
+because the matroid might not be representable over the real numbers
+$\mathbb{R}$.
+A classical example is the _Fano plane_ matroid on 7 points with 7 hyperplanes.
+It has just too many hyperplanes, see @FanoWiki.
+
+Nevertheless, we conjecture that such
+non-representable matroids cannot occur in practice.
+
+
+<blockquote>
+**Conjecture**
+If the hyperplanes for the floating point set $E$ are computed
+following the procedure in the **Introduction**, and the tolerance `e2`
+(depending on $E$) is sufficiently small,
+then a perturbation $E' \subset \mathbb{R}^3$ representing the matroid exists.
+</blockquote>
+This statement is theoretical in nature,
+since real numbers in $\mathbb{R}$ cannot be represented exactly.
+
+The conjecture is true in some simple cases.
+Before exploring this, call the hyperplanes of size 2 the _trivial hyperplanes_.
+Note that for the Fano plane matroid, all 7 hyperplanes are
+size 3 and non-trivial.
+
+Suppose that _all_ the hyperplanes are trivial, so the matroid is uniform
+and all the facets of the zonohedron are parallelograms.
+Then no perturbation is needed at all; the given vectors
+(with dyadic rational numbers) already represent.
+This is the case for 7 of the 13 classical zonohedra in `classics.genlist`.
+And it is also the case for the generators in `colorimetry.genlist[[3]]`.
+
+Now suppose that the matroid has only 1 non-trivial hyperplane.
+Then there are 3 or more generators that (approximately) span a plane,
+and all the other generators are far from the plane.
+Perturb this plane to the "best fit" linear plane $P$ to these generators where
+$P \subset \mathbb{R}^3$,
+and then project them onto $P$.
+If this perturbation accidentally creates non-trivial hyperplanes
+with the _other_ generators, then just perturb the other generators
+to get the original matroid.
+An example is the matroid generated by `colorimetry.genlist[[2]]`,
+which has 1 non-trivial hyperplane with 50 generators.
+
+Now suppose that all the non-trivial hyperplanes are disjoint.
+Then we can repeat the procedure in the previous paragraph
+for each hyperplane.
+Since the hyperplanes are disjoint, there is no "interaction" between them.
+An example is the matroid generated by `colorimetry.genlist[[1]]`,
+which has 2 disjoint non-trivial hyperplanes with sizes 3 and 26.
+
+Now suppose that the non-trivial hyperplanes intersect in a single generator.
+We can perform a "constrained best fit" perturbation for each plane $P$,
+where the constraint is that that single generator is in the plane.
+An example is the matroid generated by `classics.genlist[[5]]`,
+which has 2 non-trivial hyperplanes: $\{1, 3, 4\}$ and $\{2, 3, 5\}$.
+The generated zonohedron is the _rhombo-hexagonal dodecahedron_.
+
+More simple cases can be listed by mixing the above,
+but we cannot find a general proof of the conjecture.
+
+
+
+<br><br>
+
+# References
+
+<div id="refs"></div>
+
+
+
+
+<br><br>
+
+
+
+
+# Session Information
+
+This document was prepared
+`r format(Sys.Date(), "%a %b %d, %Y")`
+with the following configuration:
+<pre>
+```{r, echo=FALSE, results='asis'}
+options(old_opt)
+sessionInfo()
+```
+</pre>

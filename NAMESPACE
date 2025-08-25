@@ -1,0 +1,248 @@
+export(
+  #duplicated.matrix,
+  #unique.matrix,
+  #anyDuplicated.matrix,
+  grpDuplicated,
+  grpDuplicated.default,
+  grpDuplicated.matrix
+)
+
+##  list
+export(
+  matroid.list,
+  simplify,
+  simplify.list,
+  unsimplify.list
+)
+
+
+##  matrix
+export(
+#  simplify.matrix,
+  matroid.matrix
+)
+
+
+##  matroid
+export(
+  matroid,
+  unsimplify,
+#  unsimplify.matroid,
+  is_simple,
+  is_simple.matroid,
+  is_uniform,
+  is_uniform.matroid,
+  is_paving,
+  is_paving.matroid,
+  getground,
+  getground.matroid,
+  gethyperplane,
+  gethyperplane.matroid,
+  getloop,
+  getloop.matroid,
+  getmultiple,
+  getmultiple.matroid,
+  getmatrix.matroid,
+  getsimplified,
+  getsimplified.matroid,
+# getmixed,
+# getmixed.matroid,
+# getmultipleindex,
+# getmultipleindex.matroid,
+  lintransform.matroid,
+  rank,
+  is_independent,
+#  is_loop,
+#  is_loop.matroid,
+  print.matroid
+)
+
+
+##  zonotope
+export(
+  getcenter.zonotope,
+  getmatrix.zonotope,
+  getmatroid.zonotope,
+  minkowskisum.zonotope,
+  "%+%.zonotope",
+  inside.zonotope,
+  is_pointed.zonotope,
+  is_salient.zonotope,
+  support.zonotope,
+  symmetrize.zonotope,
+  spherize.zonotope
+)
+
+
+##  zonoseg
+export(
+  zonoseg,
+  print.zonoseg,
+  invert.zonoseg,
+  getsegment,
+  getsegment.zonoseg,
+  getsegment2trans,
+  getsegment2trans.zonoseg
+
+)
+
+##  zonogon
+export(
+  zonogon,
+  getmetrics.zonogon,
+  invert.zonogon,
+  lintransform.zonogon,
+  polarzonogon,
+  plot.zonogon,
+  print.zonogon,
+  raytrace.zonogon,
+  section.zonogon
+  )
+
+
+##  zonohedron
+export(
+  zonohedron,
+  polarzonohedron,
+# canonicalboundary.zonohedron,
+  as.mesh3d.zonohedron,             # as.mesh3d() is imported from package 'rgl'
+  getmetrics.zonohedron,
+  invertboundary.zonohedron,
+  lintransform.zonohedron,
+#  quasicube,
+  raytrace.zonohedron,
+  regularprism,
+  section.zonohedron,
+  summary.zonohedron,
+  plot.zonohedron,
+  print.zonohedron,
+  plot2trans,
+  plothighertrans,
+  plotpolygon,
+  raytrace2trans,
+  section2trans,
+  inside2trans,
+  transitionsdf
+  )
+
+export (
+  print.genlist
+  )
+
+
+##  UseMethod() calls in zonotope.R
+export(
+  boundarypgramdata,
+# canonicalboundary,
+  getcenter,
+  getmatrix,
+  getmatroid,
+  getmetrics,
+  inside,
+  invert,
+  invertboundary,
+  is_pointed,
+  is_salient,
+  lintransform,
+  minkowskisum,
+  raytrace,
+  section,
+  spherize,
+  support,
+  symmetrize,
+  "%+%"
+)
+
+
+# S3method(unique, matrix)
+# S3method(duplicated, matrix)
+# S3method(anyDuplicated, matrix)
+S3method(grpDuplicated, default)
+S3method(grpDuplicated, matrix)
+S3method(simplify, matrix)
+
+##   matroid
+S3method(matroid,matrix)
+S3method(getsimplified,matroid)
+S3method(unsimplify,matroid)
+S3method(is_simple,matroid)
+S3method(is_uniform,matroid)
+S3method(is_paving,matroid)
+# S3method(rank,matroid)
+# S3method(is_independent,matroid)
+S3method(is_loop,matroid)
+S3method(getground,matroid)
+S3method(getloop,matroid)
+S3method(getmultiple,matroid)
+S3method(getmatrix,matroid)
+S3method(getmixed,matroid)
+S3method(gethyperplane,matroid)
+S3method(getmultipleindex,matroid)
+S3method(getsimplified,matroid)
+S3method(getnormal,matroid)
+S3method(lintransform,matroid)
+S3method(print,matroid)
+
+##   list
+S3method(matroid,list)
+S3method(simplify,list)
+S3method(unsimplify,list)
+
+##  zonotope
+S3method(getcenter,zonotope)
+S3method(getmatrix,zonotope)
+S3method(getmatroid,zonotope)
+S3method(minkowskisum,zonotope)
+S3method("%+%",zonotope)
+S3method(inside,zonotope)
+S3method(is_pointed,zonotope)
+S3method(is_salient,zonotope)
+S3method(support,zonotope)
+S3method(symmetrize,zonotope)
+S3method(spherize,zonotope)
+
+
+##   zonoseg
+S3method(getsegment,zonoseg)
+S3method(getsegment2trans,zonoseg)
+S3method(invert,zonoseg)
+S3method(print,zonoseg)
+
+
+#   zonogon
+S3method(getmetrics,zonogon)
+S3method(invert,zonogon)
+S3method(lintransform,zonogon)
+S3method(plot,zonogon)
+S3method(print,zonogon)
+S3method(raytrace,zonogon)
+S3method(section,zonogon)
+
+
+#   zonohedron
+S3method(as.mesh3d,zonohedron)          # as.mesh3d() is imported from package 'rgl'
+# S3method(canonicalboundary,zonohedron)
+S3method(getmetrics,zonohedron)
+S3method(invertboundary,zonohedron)
+S3method(lintransform,zonohedron)
+S3method(summary,zonohedron)
+S3method(plot,zonohedron)
+S3method(print,zonohedron)
+S3method(raytrace,zonohedron)
+S3method(section,zonohedron)
+
+
+#   genlist
+S3method(print,genlist)
+
+
+useDynLib( zonohedra, .registration=TRUE, .fixes="C_" )
+
+import( logger )
+importFrom( utils, capture.output, flush.console, str, read.table )
+importFrom( stats, runif )
+importFrom( grDevices, rainbow )
+importFrom( graphics, abline, arrows, grid, points, polygon,
+            segments, strheight, text, title )
+importFrom( rgl, as.mesh3d )
+
