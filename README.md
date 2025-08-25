@@ -3,8 +3,8 @@
 
 
 ## Overview
-A _zonohedron_ is the linear image of a high-dimensional cube
-$[0,1]^N$ to $\mathbb{R}^3$.
+A given linear map $\mathbb{R}^N \to \mathbb{R}^3$ for $N \ge 3$, defines a _zonohedron_;
+it is the linear image the cube $[0,1]^N$.
 A zonohedron is a special type of convex polyhedron.
 The images of the standard basis of $\mathbb{R}^N$ are called the
 _generators_ of the zonohedron.
